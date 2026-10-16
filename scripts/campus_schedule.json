@@ -1,0 +1,10 @@
+{
+  "_comment": "校园作息配置。请按你所在学校的真实作息修改 break_windows；未配置时使用下方默认值。",
+  "school": "四川工业科技学院",
+  "break_windows": [
+    { "start": "09:40", "end": "09:50", "label": "上午大课间" },
+    { "start": "14:40", "end": "14:50", "label": "下午大课间" },
+    { "start": "11:30", "end": "13:00", "label": "午休（非课间，时长较长）" }
+  ],
+  "notes": "break_windows 命中时预估会叠加 K_break=1.35 的课间脉冲系数"
+}

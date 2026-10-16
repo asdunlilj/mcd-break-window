@@ -1,0 +1,24 @@
+# 敏感文件：Token 明文、凭据一律不得提交
+_token.txt
+*.token
+.env
+.env.*
+*.key
+*.pem
+secrets.json
+
+# 运行时状态（含脱敏耗时样本，但不入库，避免噪音）
+state.json
+.mcd-break-window/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
