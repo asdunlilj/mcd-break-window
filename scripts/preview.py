@@ -166,56 +166,94 @@ def w_minus(hhmm: str, now: datetime):
 
 CSS = """
 *{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-     background:#f5f6f8;color:#1a1d21;line-height:1.6;padding:28px 20px 60px}
+     background:#f5f6f8;color:#1a1d21;line-height:1.65;
+     padding:clamp(14px,3vw,28px) clamp(12px,2.6vw,20px) clamp(34px,6vw,60px);
+     overflow-wrap:break-word;word-break:break-word}
+button,summary,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+img,table{max-width:100%}
 .wrap{max-width:1060px;margin:0 auto}
-header{background:#fff;border-radius:14px;padding:24px 28px;border:1px solid #e6e8ec;margin-bottom:18px}
-h1{font-size:23px;font-weight:700;letter-spacing:-.2px}
+
+header{background:#fff;border-radius:clamp(10px,2.4vw,14px);padding:clamp(16px,3.4vw,24px) clamp(15px,3.4vw,28px);
+       border:1px solid #e6e8ec;margin-bottom:clamp(12px,2.4vw,18px)}
+h1{font-size:clamp(18px,4.4vw,23px);font-weight:700;letter-spacing:-.2px;line-height:1.3}
 h1 span{color:#c0392b}
-.sub{color:#5b6270;font-size:13.5px;margin-top:6px}
-.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.chip{background:#f1f3f6;border:1px solid #e2e5ea;border-radius:999px;padding:4px 11px;font-size:12.5px;color:#39404d}
-section{background:#fff;border-radius:14px;padding:22px 26px;border:1px solid #e6e8ec;margin-bottom:18px}
-h2{font-size:15px;font-weight:650;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-h2::before{content:"";width:3px;height:15px;background:#c0392b;border-radius:2px}
-.prob{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:760px){.prob{grid-template-columns:1fr}}
-.pcard{border-radius:10px;padding:14px 16px;font-size:13.5px;border:1px solid}
-.pcard h3{font-size:13.5px;font-weight:650;margin-bottom:6px}
+.sub{color:#5b6270;font-size:clamp(12.5px,3.1vw,13.5px);margin-top:6px}
+.meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.chip{background:#f1f3f6;border:1px solid #e2e5ea;border-radius:999px;padding:4px 11px;
+      font-size:clamp(11.5px,2.9vw,12.5px);color:#39404d}
+
+section{background:#fff;border-radius:clamp(10px,2.4vw,14px);
+        padding:clamp(15px,3.4vw,22px) clamp(14px,3.4vw,26px);
+        border:1px solid #e6e8ec;margin-bottom:clamp(12px,2.4vw,18px)}
+h2{font-size:clamp(14px,3.4vw,15px);font-weight:650;margin-bottom:13px;display:flex;align-items:center;gap:8px}
+h2::before{content:"";width:3px;height:15px;background:#c0392b;border-radius:2px;flex:0 0 auto}
+/* 面板标题：类型 / 时间 / 课程对 三段可换行对齐，窄屏不会挤成一团 */
+h2.ph{flex-wrap:wrap;gap:4px 10px;align-items:baseline;line-height:1.5}
+.ph .pt{font-weight:700;font-size:clamp(14px,3.6vw,15.5px)}
+.ph .pw{font-weight:650;font-variant-numeric:tabular-nums;font-size:clamp(13.5px,3.4vw,15px)}
+.ph .pl{color:#6b7280;font-weight:500;font-size:.92em}
+
+.prob{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}
+.pcard{border-radius:10px;padding:13px 15px;font-size:clamp(12.5px,3.1vw,13.5px);border:1px solid}
+.pcard h3{font-size:clamp(12.5px,3.1vw,13.5px);font-weight:650;margin-bottom:6px}
 .pcard.s{background:#fdf6f5;border-color:#f3dbd8;color:#7a2e26}
 .pcard.m{background:#f4f8ff;border-color:#d8e5fb;color:#1c3f77}
-.tl{display:flex;gap:9px;overflow-x:auto;padding-bottom:6px}
-.win{flex:0 0 auto;cursor:pointer;border:1.5px solid #e2e5ea;background:#fff;border-radius:10px;
-     padding:10px 13px;text-align:left;min-width:132px;transition:.15s;font-family:inherit}
+
+/* 时间轴用自适应网格而不是横向滚动：
+   移动端横向滚动是可用性陷阱（用户看不出右边还有内容） */
+.tl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,124px),1fr));gap:8px;margin-bottom:11px}
+.win{min-height:54px;cursor:pointer;border:1.5px solid #e2e5ea;background:#fff;border-radius:10px;
+     padding:8px 12px;text-align:left;font-family:inherit;transition:.15s;
+     display:flex;flex-direction:column;justify-content:center;gap:1px}
 .win:hover{border-color:#b9c0cc}
 .win.on{border-color:#c0392b;background:#fef7f6;box-shadow:0 0 0 3px rgba(192,57,43,.09)}
-.win .t{font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}
-.win .d{font-size:11.5px;color:#6b7280;margin-top:2px}
-.win .k{font-size:11px;font-weight:600;margin-top:5px;display:inline-block;padding:1px 7px;border-radius:999px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media(max-width:760px){.grid{grid-template-columns:1fr}}
-.rec{border:1px solid #e6e8ec;border-radius:11px;padding:15px 16px;background:#fff;position:relative}
+.win .t{font-size:clamp(13px,3.3vw,14px);font-weight:650;font-variant-numeric:tabular-nums}
+.win .d{font-size:clamp(11px,2.9vw,11.5px);color:#6b7280}
+.win .k{font-size:11px;font-weight:600;margin-top:3px;display:inline-block;padding:1px 7px;border-radius:999px;align-self:flex-start}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:11px}
+.rec{border:1px solid #e6e8ec;border-radius:11px;padding:14px 15px;background:#fff;position:relative}
 .rec.no{opacity:.55;border-style:dashed}
-.rec .rk{position:absolute;top:13px;right:14px;font-size:11px;color:#9aa1ad;font-weight:600}
-.rec .nm{font-size:15px;font-weight:650;padding-right:26px;line-height:1.35}
-.rec .pr{font-size:13px;color:#c0392b;font-weight:650;margin-top:5px}
-.rec .wt{font-size:12.5px;color:#4a5160;margin-top:9px;padding-top:9px;border-top:1px dashed #e9ebef}
-.rec .wt b{font-size:16px;color:#1a1d21;font-variant-numeric:tabular-nums}
-.tag{display:inline-block;background:#f1f3f6;border-radius:5px;padding:1px 7px;font-size:11.5px;color:#4a5160;margin-top:7px}
-.avoid{margin-top:13px;background:#fffbeb;border:1px solid #f5e2ac;border-radius:10px;padding:11px 14px;font-size:13px;color:#7a5c12}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #eef0f3}
-th{color:#6b7280;font-weight:600;font-size:12px}
-td.n{font-variant-numeric:tabular-nums;text-align:right}
-code{background:#f1f3f6;padding:1.5px 6px;border-radius:5px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
-.formula{background:#f8f9fb;border:1px solid #e9ebef;border-radius:9px;padding:13px 15px;font-size:13px;
-         font-family:ui-monospace,Menlo,Consolas,monospace;color:#2b3038;overflow-x:auto;margin-bottom:13px}
-details{margin-top:13px}
-summary{cursor:pointer;font-size:13px;color:#1f6feb;font-weight:600;user-select:none}
-.note{font-size:12.5px;color:#6b7280;margin-top:11px;line-height:1.75}
-.warn{background:#fef7f6;border:1px solid #f3dbd8;border-radius:9px;padding:11px 14px;font-size:13px;color:#7a2e26;margin-bottom:13px}
-footer{text-align:center;font-size:12px;color:#9aa1ad;margin-top:26px;line-height:1.9}
+.rec .rk{position:absolute;top:12px;right:13px;font-size:11px;color:#9aa1ad;font-weight:600}
+.rec .nm{font-size:clamp(13.5px,3.5vw,15px);font-weight:650;padding-right:26px;line-height:1.4}
+.rec .pr{font-size:clamp(12.5px,3.2vw,13px);color:#c0392b;font-weight:650;margin-top:4px}
+.rec .wt{font-size:clamp(12px,3vw,12.5px);color:#4a5160;margin-top:9px;padding-top:9px;border-top:1px dashed #e9ebef}
+.rec .wt b{font-size:clamp(15px,3.9vw,16px);color:#1a1d21;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;background:#f1f3f6;border-radius:5px;padding:1px 7px;
+     font-size:clamp(11px,2.8vw,11.5px);color:#4a5160;margin-top:6px}
+.avoid{margin-top:12px;background:#fffbeb;border:1px solid #f5e2ac;border-radius:10px;
+       padding:10px 13px;font-size:clamp(12px,3vw,13px);color:#7a5c12}
+
+table{width:100%;border-collapse:collapse;font-size:clamp(11.5px,2.9vw,13px)}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #eef0f3;overflow-wrap:anywhere;vertical-align:top}
+th{color:#6b7280;font-weight:600;font-size:clamp(11px,2.8vw,12px)}
+td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+code{background:#f1f3f6;padding:1.5px 6px;border-radius:5px;font-size:clamp(11.5px,2.9vw,12.5px);
+     font-family:ui-monospace,Menlo,Consolas,monospace}
+.formula{background:#f8f9fb;border:1px solid #e9ebef;border-radius:9px;padding:12px 14px;
+         font-size:clamp(10.5px,2.7vw,13px);font-family:ui-monospace,Menlo,Consolas,monospace;
+         color:#2b3038;line-height:1.75;margin-bottom:13px}
+details{margin-top:12px}
+summary{cursor:pointer;font-size:clamp(12px,3vw,13px);color:#1f6feb;font-weight:600;
+        user-select:none;padding:7px 0;min-height:34px;display:flex;align-items:center}
+.note{font-size:clamp(11.5px,2.9vw,12.5px);color:#6b7280;margin-top:11px;line-height:1.8}
+.warn{background:#fef7f6;border:1px solid #f3dbd8;border-radius:9px;padding:10px 13px;
+      font-size:clamp(12px,3vw,13px);color:#7a2e26;margin-bottom:13px}
+footer{text-align:center;font-size:clamp(11px,2.8vw,12px);color:#9aa1ad;margin-top:clamp(18px,4vw,26px);line-height:1.9}
+
+/* 窄屏二次收紧：更小的行内边距 + 详情表格字号 */
+@media(max-width:420px){
+  th,td{padding:6px 4px}
+  .rec{padding:13px 13px}
+  .chip{padding:3px 9px}
+}
+/* 打印/导出 PDF 时去掉交互背景色 */
+@media print{body{background:#fff;padding:0}section,header{border-color:#ddd;break-inside:avoid}}
 """
+
 
 
 def esc(v) -> str:
@@ -233,7 +271,10 @@ def render(data: dict) -> str:
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f5f6f8">
+<meta name="format-detection" content="telephone=no,address=no,email=no">
 <title>麦麦课间窗口 · {name}</title>
 <style>{CSS}</style>
 </head>
@@ -334,8 +375,8 @@ function renderTimeline() {{
   }});
   const n = DATA.windows.length;
   document.getElementById("tl-note").textContent =
-    `共 ${{n}} 个窗口。小课间只来得及点快餐品，大课间与餐段才推荐完整正餐。`
-    + `　当前时间 ${{DATA.generated_at.slice(11)}}`;
+    `共 ${{n}} 个窗口，点击任意窗口查看该时段的推荐。`
+    + `小课间只来得及点快餐品，大课间与餐段才推荐完整正餐。`;
 }}
 
 function renderPanel(i) {{
@@ -378,9 +419,17 @@ function renderPanel(i) {{
       超出本窗口 ${{fmt(w.avoid.over, 1)}} 分钟，这个课间不建议点。
     </div>` : "";
 
+  const kindShort = w.kind_text.split("（")[0];
+  const kindNote = (w.kind_text.match(/（(.+)）/) || [null, ""])[1];
+
   p.innerHTML = `
-    <h2><span style="color:${{col}}">${{w.kind_text}}</span>　${{w.start}}–${{w.end}}　<span style="color:#6b7280;font-weight:500">${{w.label}}</span></h2>
+    <h2 class="ph">
+      <span class="pt" style="color:${{col}}">${{kindShort}}</span>
+      <span class="pw">${{w.start}}–${{w.end}}</span>
+      <span class="pl">${{w.label}}</span>
+    </h2>
     <div class="meta" style="margin-bottom:15px">
+      <span class="chip">${{kindNote}}</span>
       <span class="chip">窗口 ${{w.minutes}} 分钟</span>
       <span class="chip">扣步行 ${{fmt(DATA.walking, 0)}} 分钟后可用于等待 ${{fmt(w.budget, 1)}} 分钟</span>
       <span class="chip">打分权重：速度 ${{w.weights.speed}}｜完整度 ${{w.weights.completeness}}｜营养 ${{w.weights.nutrition}}｜价格 ${{w.weights.price}}</span>
