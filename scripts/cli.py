@@ -163,7 +163,9 @@ def cmd_advise(args) -> int:
                 break_minutes = 10.0
                 origin = "自动识别｜今日课间窗口已全部结束，按默认 10 分钟"
 
-    budget = args.budget if args.budget is not None else break_minutes + 3
+    # 可用于等待的时间 = 课间时长 − 往返步行耗时（缓冲是"扣掉"而不是"加上"）
+    walk = float((model.schedule.get("walking") or {}).get("round_trip_minutes", 4.0))
+    budget = args.budget if args.budget is not None else max(1.0, break_minutes - walk)
     profile = model.profile_for(at)
     print("=" * 78)
     print(f"麦麦课间窗口 · 门店 {args.store}")
@@ -173,8 +175,8 @@ def cmd_advise(args) -> int:
               f"｜{WINDOW_KIND_TEXT.get(window.kind, window.kind)}")
     else:
         print("当前不在课间窗口内")
-    print(f"课间时长 {break_minutes:.0f} 分钟（{origin}）"
-          f"　可接受等待上限 {budget:.1f} 分钟（含 {budget - break_minutes:.0f} 分钟缓冲）")
+    print(f"课间时长 {break_minutes:.0f} 分钟（{origin}）")
+    print(f"扣除往返步行 {walk:.0f} 分钟 → 真正可用于等待 {budget:.1f} 分钟")
     w = score_weights(budget)
     print(f"打分权重（随窗口松紧自适应）：速度 {w['speed']}｜完整度 {w['completeness']}"
           f"｜营养 {w['nutrition']}｜价格 {w['price']}")

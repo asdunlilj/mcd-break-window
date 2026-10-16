@@ -487,6 +487,15 @@ class PrepModel:
 
 # ---------------------------------------------------------------- 推荐引擎
 
+# 选择阶段的每类别上限：饮品单独限 1 项，避免"两杯可乐"式的冗余推荐
+CATEGORY_CAP = {"饮品": 1}
+DEFAULT_CATEGORY_CAP = 2
+
+
+def _cap_for(category: str) -> int:
+    return CATEGORY_CAP.get(category, DEFAULT_CATEGORY_CAP)
+
+
 @dataclass
 class Suggestion:
     item: Item
@@ -625,21 +634,22 @@ def recommend(
     per_category: dict[str, int] = {}
 
     def _select(candidates: list[Suggestion]) -> None:
-        """按得分顺序挑选，同一类别最多 2 项（多样性与削峰双重考虑）。"""
+        """按得分顺序挑选，每类别有数量上限（多样性与削峰双重考虑）。"""
         for cand in candidates:
             if len(picked) >= top_k:
                 return
             if not cand.fits:
                 continue
             cat = cand.item.category
-            if per_category.get(cat, 0) >= 2:
+            if per_category.get(cat, 0) >= _cap_for(cat):
                 continue
             picked.append(cand)
             per_category[cat] = per_category.get(cat, 0) + 1
 
-    # 第一轮：只从正餐（完整度 ≥ 0.3）中挑 ——
-    # 课间推荐首先要保证"吃得饱"，否则会出现 Top-K 里塞满可乐和小食的荒谬结果。
-    _select([s for s in results if s.item.completeness >= 0.30])
+    # 第一轮：只从**正餐**中挑（完整度 ≥ 0.50，即汉堡/卷/炸鸡/安格斯/组合餐）——
+    # 课间推荐首先要保证"吃得饱"。门槛若放到 0.30，小食甜品（恰好 0.30）会被放行，
+    # 结果是 10 分钟小课间的前两名变成麦旋风 + 薯饼，这不是一顿饭。
+    _select([s for s in results if s.item.completeness >= 0.50])
     # 第二轮：正餐不足 top_k 时，才用饮品/小食补齐
     if len(picked) < top_k:
         _select(results)
