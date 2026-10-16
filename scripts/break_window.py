@@ -26,12 +26,62 @@ from calibration_guard import (
 )
 
 STATE_PATH = os.path.join(os.path.expanduser("~"), ".mcd-break-window", "state.json")
+DEFAULT_SCHEDULE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "campus_schedule.json"
+)
+
+# 未配置 window_rules.pulse 时的兜底脉冲系数
+WINDOW_PULSE_FALLBACK = {"short": 1.35, "long": 1.20, "meal": 1.10}
+
+# 课间窗口类型的中文说明，用于输出
+WINDOW_KIND_TEXT = {
+    "short": "小课间（仅快餐品可行）",
+    "long": "大课间（可选常规餐品）",
+    "meal": "餐段（时间充裕）",
+}
+
+
+def _hm(value: str) -> datetime:
+    return datetime.strptime(value, "%H:%M")
+
+
+def _load_schedule(path: str) -> dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+@dataclass
+class ClassWindow:
+    """课程之间的空档窗口，由作息表的 periods 自动推导。"""
+
+    start: str
+    end: str
+    minutes: int
+    kind: str          # short / long / meal
+    label: str         # 如「第一节课 → 第二节课」
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "start": self.start, "end": self.end,
+            "minutes": self.minutes, "kind": self.kind,
+            "kind_text": WINDOW_KIND_TEXT.get(self.kind, self.kind),
+            "label": self.label,
+        }
 
 # ---------------------------------------------------------------- 出餐基准表
 
 # 规则按顺序匹配，首个命中生效。数值来自门店出餐工序拆解的经验基线，
 # 并通过 calibration 逐步修正（见 PrepModel.calibrate）。
+#
+# ⚠️ 顺序很重要：**组合餐必须排在最前**。
+#    否则「龙焰鸡腿堡三件套」会先命中「鸡腿堡」规则而被当成单品鸡肉汉堡，
+#    导致基准时长与类别都错（这是早期版本的缺陷，已修复）。
 BASE_RULES: list[tuple[tuple[str, ...], float, str]] = [
+    (("三件套", "四件套", "套餐", "随心选", "随心配", "双人餐", "小食盘",
+      "口福", "拼盘", "分享餐", "乐园", "亲子", "精选单人餐"), 3.8, "组合餐"),
     (("可乐", "雪碧", "芬达", "怡泉", "柠檬红茶", "苹果汁", "纯悦", "鲜萃咖啡",
       "锡兰红茶", "牛奶", "奶铁", "美式", "卡布奇诺", "玛奇朵", "豆浆",
       "橙橙", "柠柠", "果汁", "燕麦"), 0.8, "饮品"),
@@ -39,13 +89,24 @@ BASE_RULES: list[tuple[tuple[str, ...], float, str]] = [
       "薯饼", "莓"), 1.8, "小食甜品"),
     (("鸡块", "鸡翅", "V翅", "鸡排", "脆汁鸡", "鸡柳", "肉骨鸡", "鸡架"), 2.9, "炸鸡"),
     (("卷",), 2.6, "卷类"),
-    (("麦辣鸡腿堡", "板烧", "麦香鸡", "鸡肉堡", "鸡腿堡"), 3.2, "鸡肉汉堡"),
     (("安格斯",), 4.2, "安格斯厚牛堡"),
+    (("麦辣鸡腿堡", "板烧", "麦香鸡", "鸡肉堡", "鸡腿堡"), 3.2, "鸡肉汉堡"),
     (("巨无霸", "吉士汉堡", "麦香鱼", "鳕鱼堡", "牛堡", "高达", "不素之霸"), 3.5, "牛肉/鱼汉堡"),
-    (("三件套", "四件套", "套餐", "随心选", "随心配", "双人餐", "小食盘",
-      "口福", "拼盘", "分享餐", "乐园", "亲子", "精选单人餐"), 3.8, "组合餐"),
 ]
 DEFAULT_BASE = 3.0
+
+# 正餐完整度：用于让「时间充裕的窗口」推荐吃得饱的组合，而非永远推荐最快的单品
+COMPLETENESS_BY_CATEGORY = {
+    "组合餐": 1.00,
+    "安格斯厚牛堡": 0.70,
+    "鸡肉汉堡": 0.60,
+    "牛肉/鱼汉堡": 0.60,
+    "卷类": 0.50,
+    "炸鸡": 0.50,
+    "小食甜品": 0.30,
+    "饮品": 0.10,
+}
+DEFAULT_COMPLETENESS = 0.45
 
 # 时段系数：校园门店作息（可在 campus_schedule.json 中覆盖）
 TIME_FACTORS: list[tuple[str, str, float, str]] = [
@@ -91,6 +152,11 @@ class Item:
                 return base
         return DEFAULT_BASE
 
+    @property
+    def completeness(self) -> float:
+        """正餐完整度 0.10（仅饮品）～ 1.00（完整套餐）。"""
+        return COMPLETENESS_BY_CATEGORY.get(self.category, DEFAULT_COMPLETENESS)
+
 
 @dataclass
 class Estimate:
@@ -110,8 +176,11 @@ class Estimate:
 class PrepModel:
     """可校准的出餐等待预估模型。"""
 
-    def __init__(self, state_path: str = STATE_PATH, schedule: dict[str, Any] | None = None) -> None:
+    def __init__(self, state_path: str = STATE_PATH, schedule: dict[str, Any] | None = None,
+                 schedule_path: str = DEFAULT_SCHEDULE_PATH) -> None:
         self.state_path = state_path
+        if schedule is None:
+            schedule = _load_schedule(schedule_path)
         self.schedule = schedule or {}
         self.state = self._load_state()
 
@@ -151,14 +220,67 @@ class PrepModel:
             return [(w["start"], w["end"]) for w in raw]
         return [("09:40", "09:50"), ("14:40", "14:50")]
 
-    def break_factor(self, at: datetime) -> tuple[float, bool]:
+    # ---------- 作息表驱动的课间窗口 ----------
+
+    def profile_for(self, at: datetime) -> dict[str, Any]:
+        """按星期几选择作息 profile（周一至周四 / 周五周六 / 周日）。"""
+        wd = at.weekday()
+        for _key, prof in (self.schedule.get("profiles") or {}).items():
+            if wd in (prof.get("days") or []):
+                return prof
+        return {"label": "未知", "periods": []}
+
+    def day_windows(self, at: datetime) -> list[ClassWindow]:
+        """从作息表的相邻课程空档推导出当天的所有课间窗口。"""
+        prof = self.profile_for(at)
+        periods = sorted(prof.get("periods") or [], key=lambda p: p["start"])
+        rules = self.schedule.get("window_rules") or {}
+        min_gap = int(rules.get("min_gap_minutes", 5))
+        short_max = int(rules.get("short_max_minutes", 12))
+        long_min = int(rules.get("long_min_minutes", 25))
+        meal_min = int(rules.get("meal_min_minutes", 45))
+
+        windows: list[ClassWindow] = []
+        for prev, nxt in zip(periods, periods[1:]):
+            gap = int((_hm(nxt["start"]) - _hm(prev["end"])).total_seconds() // 60)
+            if gap < min_gap:
+                continue
+            if gap >= meal_min:
+                kind = "meal"
+            elif gap >= long_min:
+                kind = "long"
+            elif gap <= short_max:
+                kind = "short"
+            else:
+                kind = "short" if gap <= short_max else "long"
+            windows.append(ClassWindow(
+                start=prev["end"], end=nxt["start"], minutes=gap, kind=kind,
+                label=f"{prev['name']} → {nxt['name']}",
+            ))
+        return windows
+
+    def current_window(self, at: datetime) -> tuple[ClassWindow | None, int]:
+        """返回当前所处课间窗口与剩余分钟数；不在任何窗口内则返回 (None, 0)。"""
         hhmm = at.strftime("%H:%M")
-        for start, end in self.break_windows():
-            lo = (datetime.strptime(start, "%H:%M") - timedelta(minutes=5)).strftime("%H:%M")
-            hi = (datetime.strptime(end, "%H:%M") + timedelta(minutes=15)).strftime("%H:%M")
-            if lo <= hhmm <= hi:
-                return BREAK_PULSE, True
-        return 1.0, False
+        for w in self.day_windows(at):
+            if w.start <= hhmm < w.end:
+                remaining = int((_hm(w.end) - _hm(hhmm)).total_seconds() // 60)
+                return w, remaining
+        return None, 0
+
+    def store_open(self, at: datetime) -> bool:
+        hours = self.schedule.get("store_hours") or {}
+        hhmm = at.strftime("%H:%M")
+        return hours.get("open", "00:00") <= hhmm < hours.get("close", "23:59")
+
+    def break_factor(self, at: datetime) -> tuple[float, bool]:
+        """课间脉冲：按窗口类型取值（小课间压力最大）。"""
+        window, _remaining = self.current_window(at)
+        if window is None:
+            return 1.0, False
+        pulses = (self.schedule.get("window_rules") or {}).get("pulse") or {}
+        factor = pulses.get(window.kind, WINDOW_PULSE_FALLBACK.get(window.kind, 1.0))
+        return float(factor), True
 
     def store_factor(self, store_code: str) -> float:
         return float(self.state["store_factor"].get(store_code, 1.0))
@@ -216,6 +338,7 @@ class PrepModel:
         base, detail = self.base_minutes(items)
         k_time, time_label = self.time_factor(at)
         k_break, in_break = self.break_factor(at)
+        window, window_remaining = self.current_window(at)
         k_campaign = CAMPAIGN_PULSE if campaign_active else 1.0
         raw_store = self.store_factor(store_code)
         k_store = max(1.0, raw_store) if safe else raw_store
@@ -231,6 +354,9 @@ class PrepModel:
             "base_minutes": round(base, 2),
             "time_factor": {"value": k_time, "label": time_label},
             "break_pulse": {"value": k_break, "in_break": in_break},
+            "break_window": (
+                {**window.as_dict(), "remaining_minutes": window_remaining} if window else None
+            ),
             "campaign_factor": k_campaign,
             "store_factor": round(k_store, 3),
             "store_factor_raw": round(raw_store, 3),
@@ -372,6 +498,33 @@ class Suggestion:
     guard_note: str = ""
 
 
+def score_weights(budget_minutes: float) -> dict[str, float]:
+    """打分权重随窗口松紧自适应。
+
+    这是修复一处真实排序缺陷的产物。早期版本把速度权重写死为 0.55，
+    导致「28 分钟的大课间」仍然只推荐最快的那三个单品——因为同一批餐品
+    在速度、价格、营养上都同时占优，排序对权重不敏感，无论怎么调顺序都不变。
+
+    修正后的四个维度，关键在于引入**正餐完整度**（completeness）：
+        紧窗口（≤12 分钟）：速度主导（0.50），完整度几乎不计（0.05）
+                            —— 来不及的餐品毫无意义
+        宽窗口（≥30 分钟）：完整度升到 0.35，速度降到 0.15
+                            —— 既然都来得及，就该选吃得饱的正餐
+    """
+    tight = max(0.0, min(1.0, (30.0 - budget_minutes) / 18.0))
+    w_speed = 0.15 + 0.35 * tight
+    w_complete = 0.05 + 0.30 * (1.0 - tight)
+    w_nut = 0.20 + 0.10 * (1.0 - tight)
+    w_price = 1.0 - w_speed - w_complete - w_nut
+    return {
+        "speed": round(w_speed, 3),
+        "completeness": round(w_complete, 3),
+        "nutrition": round(w_nut, 3),
+        "price": round(w_price, 3),
+        "tightness": round(tight, 3),
+    }
+
+
 def recommend(
     model: PrepModel,
     items: list[Item],
@@ -386,6 +539,7 @@ def recommend(
     at = at or datetime.now()
     nutrition = nutrition or {}
     results: list[Suggestion] = []
+    w = score_weights(budget_minutes)
 
     for item in items:
         est = model.estimate([item], at=at, store_code=store_code, campaign_active=campaign_active)
@@ -409,26 +563,52 @@ def recommend(
             )
 
         # 出餐速度分（越快越高）
-        speed = max(0.0, 1.0 - wait / max(budget_minutes * 2, 1.0))
-        # 营养分：以「有能量数据 + 蛋白占比合理」为准，纯饮品/甜品不给高分
+        speed = max(0.0, 1.0 - wait / max(budget_minutes * 2, 1.0))        # 营养分：以「有能量数据 + 蛋白占比合理」为准，纯饮品/甜品不给高分
+        # 营养分：连续打分，且**无数据取中性值**
+        # ⚠️ 早期版本对"不在营养表里的餐品"直接给 0.3，造成巨大悬崖——
+        #    那实际上是在奖励"数据可得性"而非"营养质量"，是设计缺陷。
         nut = nutrition.get(item.name, {})
         kcal = nut.get("energyKcal", 0.0)
         protein = nut.get("protein", 0.0)
-        if kcal and 250 <= kcal <= 700:
-            nut_score = 0.8 + min(protein / 40.0, 0.2)
-        elif kcal:
-            nut_score = 0.45
+        sodium = nut.get("sodium", 0.0)
+        if not kcal:
+            nut_score = 0.60          # 未知 ≠ 差，取中性
         else:
-            nut_score = 0.3
-        # 价格分：单价 15-35 元为校园最优区间
-        if 15 <= item.price <= 35:
-            price_score = 1.0
-        elif item.price:
-            price_score = 0.6
+            if 350 <= kcal <= 650:
+                nut_score = 1.00      # 正餐合理区间
+            elif 250 <= kcal < 350:
+                nut_score = 0.85
+            elif 650 < kcal <= 900:
+                nut_score = 0.70
+            elif kcal > 900:
+                nut_score = 0.45      # 单份超 900 kcal，作为课间餐偏重
+            else:
+                nut_score = 0.60      # 热量过低，多为饮品/小食，不算正餐
+            if sodium > 1000:
+                nut_score -= 0.15     # 单份钠超 1000mg 偏高
+            if protein >= 20:
+                nut_score += 0.05     # 蛋白充足、更抗饿
+            nut_score = max(0.30, min(1.00, nut_score))
+        # 价格分：课间餐的价格敏感度有限，只对明显偏高的做温和惩罚。
+        # （早期版本把 15–35 元以外一律给 0.6，导致套餐被不成比例地压低。）
+        p = item.price
+        if not p:
+            price_score = 0.50
+        elif p <= 30:
+            price_score = 1.00
+        elif p <= 45:
+            price_score = 0.85
+        elif p <= 60:
+            price_score = 0.65
         else:
-            price_score = 0.5
+            price_score = 0.45
 
-        score = 0.55 * speed + 0.25 * nut_score + 0.20 * price_score
+        score = (
+            w["speed"] * speed
+            + w["completeness"] * item.completeness
+            + w["nutrition"] * nut_score
+            + w["price"] * price_score
+        )
         if not fits:
             score *= 0.35  # 来不及的强惩罚
 
@@ -440,10 +620,35 @@ def recommend(
                                   safe_wait_minutes=safe_wait, guard_note=guard_note))
 
     results.sort(key=lambda s: (-s.fits, -s.score))
+
+    picked: list[Suggestion] = []
+    per_category: dict[str, int] = {}
+
+    def _select(candidates: list[Suggestion]) -> None:
+        """按得分顺序挑选，同一类别最多 2 项（多样性与削峰双重考虑）。"""
+        for cand in candidates:
+            if len(picked) >= top_k:
+                return
+            if not cand.fits:
+                continue
+            cat = cand.item.category
+            if per_category.get(cat, 0) >= 2:
+                continue
+            picked.append(cand)
+            per_category[cat] = per_category.get(cat, 0) + 1
+
+    # 第一轮：只从正餐（完整度 ≥ 0.3）中挑 ——
+    # 课间推荐首先要保证"吃得饱"，否则会出现 Top-K 里塞满可乐和小食的荒谬结果。
+    _select([s for s in results if s.item.completeness >= 0.30])
+    # 第二轮：正餐不足 top_k 时，才用饮品/小食补齐
+    if len(picked) < top_k:
+        _select(results)
+
+    if picked:
+        return picked
+
     feasible = [s for s in results if s.fits][:top_k]
-    if feasible:
-        return feasible
-    return results[:top_k]
+    return feasible or results[:top_k]
 
 
 # ---------------------------------------------------------------- 工具函数
@@ -505,7 +710,13 @@ def humanize(estimate: Estimate) -> str:
         f"  基准出餐 {b['base_minutes']} 分钟",
         f"  时段系数 {b['time_factor']['value']}（{b['time_factor']['label']}）",
         f"  课间脉冲 {b['break_pulse']['value']}"
-        + ("（当前处于课间窗口）" if b["break_pulse"]["in_break"] else ""),
+        + (
+            f"（{b['break_window']['kind_text']}：{b['break_window']['label']}"
+            f"，窗口 {b['break_window']['start']}–{b['break_window']['end']}"
+            f"，剩余 {b['break_window']['remaining_minutes']} 分钟）"
+            if b.get("break_window")
+            else "（当前不在课间窗口内）"
+        ),
         f"  促销系数 {b['campaign_factor']}",
         f"  门店系数 {b['store_factor']}"
         + (f"（原始值 {b['store_factor_raw']}）" if b.get("store_factor_raw") != b["store_factor"] else "")

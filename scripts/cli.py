@@ -19,7 +19,16 @@ import sys
 import time
 from datetime import datetime
 
-from break_window import Item, PrepModel, humanize, load_nutrition, parse_menu, recommend
+from break_window import (
+    WINDOW_KIND_TEXT,
+    Item,
+    PrepModel,
+    humanize,
+    load_nutrition,
+    parse_menu,
+    recommend,
+    score_weights,
+)
 from mcd_client import McdMcpClient, McpError
 
 NUTRITION_CACHE = "nutrition.txt"
@@ -128,14 +137,50 @@ def cmd_advise(args) -> int:
 
     model = PrepModel()
     at = datetime.now()
+    if getattr(args, "at", None):
+        hh, mm = args.at.split(":")
+        at = at.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+        print(f"[模拟时间] 已将当前时间覆盖为 {at:%Y-%m-%d %H:%M}")
     campaign = _campaign_active(client, at.strftime("%Y-%m-%d"))
     nutrition = load_nutrition(NUTRITION_CACHE)
 
-    budget = args.budget if args.budget is not None else args.break_minutes + 3
+    # 课间时长：命令行优先，否则按真实作息表自动识别
+    window, remaining = model.current_window(at)
+    break_minutes = args.break_minutes
+    origin = "命令行指定"
+    if break_minutes is None:
+        if window is not None:
+            break_minutes = float(remaining)
+            origin = f"自动识别｜当前处于 {window.label}"
+        else:
+            upcoming = next(
+                (w for w in model.day_windows(at) if w.start > at.strftime("%H:%M")), None
+            )
+            if upcoming:
+                break_minutes = float(upcoming.minutes)
+                origin = f"自动识别｜不在课间，取下一个窗口 {upcoming.label}"
+            else:
+                break_minutes = 10.0
+                origin = "自动识别｜今日课间窗口已全部结束，按默认 10 分钟"
+
+    budget = args.budget if args.budget is not None else break_minutes + 3
+    profile = model.profile_for(at)
     print("=" * 78)
     print(f"麦麦课间窗口 · 门店 {args.store}")
-    print(f"当前时间 {at:%H:%M}　课间时长 {args.break_minutes} 分钟　"
-          f"可接受等待上限 {budget:.1f} 分钟（含 {budget - args.break_minutes:.0f} 分钟缓冲）")
+    print(f"当前时间 {at:%Y-%m-%d %H:%M}（{profile.get('label', '?')}）")
+    if window is not None:
+        print(f"课间窗口 {window.start}–{window.end}｜{window.label}"
+              f"｜{WINDOW_KIND_TEXT.get(window.kind, window.kind)}")
+    else:
+        print("当前不在课间窗口内")
+    print(f"课间时长 {break_minutes:.0f} 分钟（{origin}）"
+          f"　可接受等待上限 {budget:.1f} 分钟（含 {budget - break_minutes:.0f} 分钟缓冲）")
+    w = score_weights(budget)
+    print(f"打分权重（随窗口松紧自适应）：速度 {w['speed']}｜完整度 {w['completeness']}"
+          f"｜营养 {w['nutrition']}｜价格 {w['price']}")
+    print(f"　（松紧度 {w['tightness']}，1=紧窗口→求快；0=宽窗口→求吃得饱）")
+    if not model.store_open(at):
+        print("⚠️  门店当前未营业（营业时间见 campus_schedule.json）")
     print("=" * 78)
 
     picks = recommend(model, items, budget_minutes=budget, at=at,
@@ -148,7 +193,7 @@ def cmd_advise(args) -> int:
     for rank, pick in enumerate(picks[: args.top], 1):
         if not pick.fits:
             continue
-        print(f"\n  {rank}. {pick.item.name}　{cpick(pick.item.price)}")
+        print(f"\n  {rank}. {pick.item.name}　{cpick(pick.item.price)}　[{pick.item.category}]")
         print(f"     保守预估 {pick.safe_wait_minutes:.1f} 分钟"
               f"｜点估计 {pick.wait_minutes:.1f} 分钟｜综合得分 {pick.score:.3f}")
         for reason in pick.reasons:
@@ -274,6 +319,43 @@ def cmd_unfreeze(args) -> int:
     return 0
 
 
+def cmd_schedule(args) -> int:
+    """按真实作息表列出当天的所有课间窗口及各自的等待预算。"""
+    model = PrepModel()
+    at = datetime.strptime(args.date, "%Y-%m-%d") if args.date else datetime.now()
+    prof = model.profile_for(at)
+    windows = model.day_windows(at)
+    hours = model.schedule.get("store_hours") or {}
+
+    print("=" * 78)
+    print(f"作息表：{model.schedule.get('school', '?')} · {model.schedule.get('term', '')}"
+          f"（{model.schedule.get('effective', '')}）")
+    print(f"日期：{at:%Y-%m-%d}（{'一二三四五六日'[at.weekday()]}）"
+          f"　适用作息：{prof.get('label', '?')}")
+    print(f"门店营业：{hours.get('open', '?')}–{hours.get('close', '?')}")
+    print("=" * 78)
+
+    if not windows:
+        print("当天无课程安排，未推导出课间窗口。")
+        return 0
+
+    now = datetime.now()
+    is_today = at.date() == now.date()
+    now_hm = now.strftime("%H:%M")
+    print(f"{'窗口':<26}{'起止':<15}{'时长':>7}  类型")
+    print("-" * 78)
+    for w in windows:
+        mark = ""
+        if is_today and w.start <= now_hm < w.end:
+            mark = "   ← 当前"
+        print(f"{w.label:<26}{w.start}–{w.end}   {w.minutes:>3} 分钟"
+              f"  {WINDOW_KIND_TEXT.get(w.kind, w.kind)}{mark}")
+    print()
+    print("说明：小课间（≤12 分钟）只来得及点快餐品；大课间（≥25 分钟）可选常规餐品；")
+    print("      餐段（≥45 分钟）无时间压力，可正常点餐。")
+    return 0
+
+
 # ---------------------------------------------------------------- 入口
 
 def main() -> int:
@@ -290,12 +372,18 @@ def main() -> int:
 
     p_adv = sub.add_parser("advise", help="课间窗口快取推荐（核心功能）")
     p_adv.add_argument("--store", required=True)
-    p_adv.add_argument("--break", dest="break_minutes", type=float, default=10.0,
-                       help="课间时长（分钟），默认 10")
+    p_adv.add_argument("--break", dest="break_minutes", type=float, default=None,
+                       help="课间时长（分钟）。不传则按真实作息表自动识别当前窗口剩余时间")
     p_adv.add_argument("--budget", type=float, default=None,
                        help="可接受等待上限（分钟），默认＝课间时长＋3 分钟缓冲")
     p_adv.add_argument("--top", type=int, default=3)
+    p_adv.add_argument("--at", default=None,
+                       help="模拟时间 HH:MM，用于审计不同课间窗口下的行为")
     p_adv.set_defaults(func=cmd_advise)
+
+    p_sch = sub.add_parser("schedule", help="按真实作息表列出当天的所有课间窗口")
+    p_sch.add_argument("--date", default=None, help="指定日期 yyyy-MM-dd，默认今天")
+    p_sch.set_defaults(func=cmd_schedule)
 
     p_watch = sub.add_parser("watch", help="轮询订单状态实测耗时并校准（含完整性守卫）")
     p_watch.add_argument("--order", required=True)
