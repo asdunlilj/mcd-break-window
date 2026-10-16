@@ -149,19 +149,35 @@ def cmd_advise(args) -> int:
         if not pick.fits:
             continue
         print(f"\n  {rank}. {pick.item.name}　{cpick(pick.item.price)}")
-        print(f"     预计等待 {pick.wait_minutes:.1f} 分钟｜综合得分 {pick.score:.3f}")
+        print(f"     保守预估 {pick.safe_wait_minutes:.1f} 分钟"
+              f"｜点估计 {pick.wait_minutes:.1f} 分钟｜综合得分 {pick.score:.3f}")
         for reason in pick.reasons:
             print(f"     · {reason}")
 
     slow = [p for p in picks if not p.fits]
     if slow:
-        worst = max(slow, key=lambda p: p.wait_minutes)
-        print(f"\n【避坑】{worst.item.name} 预计 {worst.wait_minutes:.1f} 分钟，"
-              f"超出课间窗口 {worst.wait_minutes - budget:.1f} 分钟，本时段不建议点。")
+        worst = max(slow, key=lambda p: p.safe_wait_minutes)
+        print(f"\n【避坑】{worst.item.name} 保守预估 {worst.safe_wait_minutes:.1f} 分钟，"
+              f"超出课间窗口 {worst.safe_wait_minutes - budget:.1f} 分钟，本时段不建议点。")
+
+    if picks and picks[0].guard_note:
+        print(f"\n⚠️  {picks[0].guard_note}")
 
     print("\n【模型明细】以最快推荐项为例：")
-    print(humanize(model.estimate([picks[0].item] if picks else [], at=at,
-                                  store_code=args.store, campaign_active=campaign)))
+    fastest = picks[0].item if picks else None
+    if fastest is not None:
+        print("— 点估计（用于排序）—")
+        print(humanize(model.estimate([fastest], at=at, store_code=args.store,
+                                      campaign_active=campaign, safe=False)))
+        print("\n— 保守包络（用于判定，强制 K_store ≥ 1.0）—")
+        print(humanize(model.estimate([fastest], at=at, store_code=args.store,
+                                      campaign_active=campaign, safe=True)))
+
+    report = model.integrity_report()
+    print(f"\n【校准完整性】已采纳 {report['samples_accepted']} 条，"
+          f"已丢弃 {report['samples_rejected']} 条，冻结状态：{report['frozen']}")
+    if report["frozen"]:
+        print(f"  冻结原因：{report['frozen_reason']}")
     return 0
 
 
@@ -169,36 +185,92 @@ def cpick(price: float) -> str:
     return f"¥{price:.1f}" if price else "价格未知"
 
 
+def _extract_status(detail) -> str:
+    blob = json.dumps(detail, ensure_ascii=False)
+    for key in ("orderStatus", "status"):
+        marker = f'"{key}":"'
+        pos = blob.find(marker)
+        if pos >= 0:
+            return blob[pos + len(marker): blob.find('"', pos + len(marker))]
+    return ""
+
+
 def cmd_watch(args) -> int:
-    """轮询订单状态，把「下单 → 配餐完成」的真实耗时写回模型做校准。"""
+    """轮询订单状态实测耗时，并支持用「用户确认真值」做更可信的校准。
+
+    ⚠️ 门店压单时会批量把订单点成「已完成」清屏，因此 orderStatus 只作参考，
+    真正可信的真值是用户实际拿到餐的时刻（source="user"）。
+    """
     client = _client()
     model = PrepModel()
+    print(f"开始轮询订单 {args.order}（Ctrl+C 终止）…")
+    print("提示：压单时门店可能提前点『已完成』，状态时刻仅作参考；")
+    print("      更可信的是你实际拿到餐的时刻，可用 --actual 直接传入分钟数。")
+
     t0 = time.time()
     last = None
-    print(f"开始轮询订单 {args.order}（Ctrl+C 终止）…")
-    while True:
-        try:
+    first_observed = None
+    status_elapsed = None
+
+    try:
+        while True:
             detail = _data(client.call_tool("query-order", {"orderId": args.order}))
-            blob = json.dumps(detail, ensure_ascii=False)
-            status = ""
-            for key in ("orderStatus", "status"):
-                marker = f'"{key}":"'
-                pos = blob.find(marker)
-                if pos >= 0:
-                    status = blob[pos + len(marker): blob.find('"', pos + len(marker))]
-                    break
+            status = _extract_status(detail)
             elapsed = time.time() - t0
             if status != last:
                 print(f"  [{elapsed:6.1f}s] 状态 → {status or '未知'}")
+                if first_observed is None:
+                    first_observed = elapsed
+                if status in READY_STATUSES and status_elapsed is None:
+                    status_elapsed = elapsed
                 last = status
-            if status in READY_STATUSES:
-                result = model.calibrate(args.store, args.predicted, elapsed / 60.0)
-                print(f"配餐完成，实测耗时 {elapsed / 60.0:.1f} 分钟，已回填校准。")
-                print(json.dumps(result, ensure_ascii=False))
-                return 0
-        except McpError as exc:
-            print(f"  查询失败：{exc}")
-        time.sleep(args.interval)
+            if status_elapsed is not None:
+                break
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\n已中断轮询。")
+
+    load = model.load_factor(datetime.now(), args.store)[1]
+
+    if status_elapsed is not None:
+        print("\n— 来自状态机的样本（可能被批量点完成污染）—")
+        result = model.calibrate(
+            args.store, args.predicted, status_elapsed / 60.0,
+            base_minutes=args.base_minutes, source="status",
+            load=load, first_observed_seconds=first_observed or 999.0,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    actual = args.actual
+    if actual is None:
+        try:
+            line = input("\n你实际拿到餐大约在下单后多少分钟？（直接回车跳过）").strip()
+            if line:
+                actual = float(line)
+        except (EOFError, ValueError, RuntimeError):
+            actual = None
+
+    if actual is not None:
+        print("\n— 来自用户确认的样本（可信度最高）—")
+        result = model.calibrate(
+            args.store, args.predicted, float(actual),
+            base_minutes=args.base_minutes, source="user", load=load,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_integrity(args) -> int:
+    """输出校准数据完整性报告，供人工审计。"""
+    model = PrepModel()
+    print(json.dumps(model.integrity_report(), ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_unfreeze(args) -> int:
+    """人工复核确认数据可信后，解除校准冻结。"""
+    model = PrepModel()
+    print(json.dumps(model.unfreeze(args.reason), ensure_ascii=False, indent=2))
     return 0
 
 
@@ -225,12 +297,22 @@ def main() -> int:
     p_adv.add_argument("--top", type=int, default=3)
     p_adv.set_defaults(func=cmd_advise)
 
-    p_watch = sub.add_parser("watch", help="轮询订单状态并校准模型")
+    p_watch = sub.add_parser("watch", help="轮询订单状态实测耗时并校准（含完整性守卫）")
     p_watch.add_argument("--order", required=True)
     p_watch.add_argument("--store", default="-")
     p_watch.add_argument("--predicted", type=float, default=3.0, help="下单时的预估分钟数")
+    p_watch.add_argument("--base-minutes", dest="base_minutes", type=float, default=None,
+                         help="该单的基准出餐分钟数，用于物理下界检验；缺省取 --predicted")
+    p_watch.add_argument("--actual", type=float, default=None,
+                         help="已知的真实取餐分钟数（用户确认口径，非交互）")
     p_watch.add_argument("--interval", type=float, default=10.0)
     p_watch.set_defaults(func=cmd_watch)
+
+    sub.add_parser("integrity", help="输出校准数据完整性报告（供审计）").set_defaults(func=cmd_integrity)
+
+    p_uf = sub.add_parser("unfreeze", help="人工复核后解除校准冻结")
+    p_uf.add_argument("--reason", default="人工复核后解除")
+    p_uf.set_defaults(func=cmd_unfreeze)
 
     args = parser.parse_args()
     return args.func(args)

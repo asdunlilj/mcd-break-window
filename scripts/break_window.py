@@ -15,10 +15,15 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Iterable
+
+from calibration_guard import (
+    audit_sample,
+    check_load_monotonicity,
+    clamp_store_factor,
+)
 
 STATE_PATH = os.path.join(os.path.expanduser("~"), ".mcd-break-window", "state.json")
 
@@ -113,7 +118,10 @@ class PrepModel:
     # ---------- 状态持久化 ----------
 
     def _load_state(self) -> dict[str, Any]:
-        default = {"samples": [], "store_factor": {}, "category_delta": {}}
+        default = {
+            "samples": [], "store_factor": {}, "category_delta": {},
+            "frozen": False, "frozen_reason": "", "rejected": [],
+        }
         try:
             with open(self.state_path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -193,13 +201,24 @@ class PrepModel:
         at: datetime | None = None,
         store_code: str = "-",
         campaign_active: bool = False,
+        safe: bool = False,
     ) -> Estimate:
+        """预估等待时长。
+
+        safe=False → 点估计，用于**排序**（允许乐观，让推荐有区分度）
+        safe=True  → 保守包络，用于**「课间是否来得及」的判定**。
+                     强制 K_store ≥ 1.0，即校准只能让判定更保守，永不允许更乐观。
+
+        这是 R5「保守单向」防线的落地：即使校准数据被批量点完成污染而把
+        门店系数压低，判定口径也不会因此变得乐观。
+        """
         at = at or datetime.now()
         base, detail = self.base_minutes(items)
         k_time, time_label = self.time_factor(at)
         k_break, in_break = self.break_factor(at)
         k_campaign = CAMPAIGN_PULSE if campaign_active else 1.0
-        k_store = self.store_factor(store_code)
+        raw_store = self.store_factor(store_code)
+        k_store = max(1.0, raw_store) if safe else raw_store
         k_load, recent_count = self.load_factor(at, store_code)
 
         minutes = base * k_time * k_break * k_campaign * k_store * k_load
@@ -208,38 +227,135 @@ class PrepModel:
         n = len(self.state["samples"])
         spread = max(0.15, 0.35 - 0.002 * n)
         breakdown = {
+            "envelope": "safe" if safe else "point",
             "base_minutes": round(base, 2),
             "time_factor": {"value": k_time, "label": time_label},
             "break_pulse": {"value": k_break, "in_break": in_break},
             "campaign_factor": k_campaign,
             "store_factor": round(k_store, 3),
+            "store_factor_raw": round(raw_store, 3),
             "load_factor": {"value": round(k_load, 3), "recent_orders": recent_count},
             "items": detail,
             "calibration_samples": n,
+            "calibration_frozen": bool(self.state.get("frozen")),
         }
         return Estimate(minutes, minutes * (1 - spread), minutes * (1 + spread), breakdown)
 
-    # ---------- 校准 ----------
+    # ---------- 校准（带完整性守卫） ----------
 
-    def calibrate(self, store_code: str, predicted: float, actual: float, at: datetime | None = None) -> dict[str, Any]:
-        """回填一次真实耗时（来自 query-order 的配餐完成时刻）。"""
+    def calibrate(
+        self,
+        store_code: str,
+        predicted: float,
+        actual: float,
+        at: datetime | None = None,
+        base_minutes: float | None = None,
+        source: str = "status",
+        load: int = 0,
+        first_observed_seconds: float = 999.0,
+    ) -> dict[str, Any]:
+        """回填一次真实耗时，并执行 R1–R4 完整性守卫。
+
+        source 取值：
+            "user"   —— 用户亲口/按键确认"已取到餐"，最可信
+            "status" —— 由 query-order 的 orderStatus 变化推断，可能被批量点完成污染
+        """
         at = at or datetime.now()
-        self.state["samples"].append({
-            "store": store_code, "at": at.isoformat(),
-            "predicted": round(predicted, 2), "actual": round(actual, 2),
-        })
-        samples = [s for s in self.state["samples"] if s["store"] == store_code][-30:]
-        if samples:
-            ratios = [s["actual"] / s["predicted"] for s in samples if s["predicted"] > 0]
-            if ratios:
-                # 指数滑动，避免单次异常样本把系数带偏
-                target = sum(ratios) / len(ratios)
-                current = self.store_factor(store_code)
-                self.state["store_factor"][store_code] = round(current * 0.7 + target * 0.3, 4)
+        sample: dict[str, Any] = {
+            "store": store_code,
+            "at": at.isoformat(),
+            "predicted": round(predicted, 2),
+            "actual": round(actual, 2),
+            "base_minutes": round(base_minutes if base_minutes is not None else predicted, 2),
+            "source": source,
+            "load": load,
+            "first_observed_seconds": first_observed_seconds,
+        }
+
+        # R1 / R2 / R3 准入判定
+        verdict = audit_sample(sample, sample["base_minutes"], self.state["samples"])
+        if not verdict.accepted:
+            self.state["rejected"].append({**sample, "reasons": verdict.reasons})
+            self.save()
+            return {
+                "accepted": False,
+                "guard": verdict.as_dict(),
+                "samples_total": len(self.state["samples"]),
+                "rejected_total": len(self.state["rejected"]),
+                "store_factor": self.store_factor(store_code),
+            }
+
+        sample["trust"] = verdict.trust
+        self.state["samples"].append(sample)
+
+        # R4 负载单调性检验
+        ok, rho, message = check_load_monotonicity(self.state["samples"], store_code)
+        if not ok:
+            self.state["frozen"] = True
+            self.state["frozen_reason"] = message
+            self.save()
+            return {
+                "accepted": True,
+                "guard": verdict.as_dict(),
+                "frozen": True,
+                "frozen_reason": message,
+                "spearman_rho": rho,
+                "samples_total": len(self.state["samples"]),
+                "store_factor": self.store_factor(store_code),
+            }
+
+        # 信任加权更新门店系数
+        recent = [
+            s for s in self.state["samples"]
+            if s["store"] == store_code and s.get("predicted", 0) > 0
+        ][-30:]
+        num = sum(s["actual"] * s.get("trust", 0.4) for s in recent)
+        den = sum(s["predicted"] * s.get("trust", 0.4) for s in recent)
+        note = None
+        if den > 0:
+            target = num / den
+            current = self.store_factor(store_code)
+            merged = current * 0.7 + target * 0.3
+            merged, note = clamp_store_factor(merged)
+            self.state["store_factor"][store_code] = round(merged, 4)
         self.save()
+
         return {
+            "accepted": True,
+            "guard": verdict.as_dict(),
+            "frozen": False,
+            "spearman_rho": rho,
+            "monotonicity_note": message,
             "samples_total": len(self.state["samples"]),
+            "rejected_total": len(self.state["rejected"]),
             "store_factor": self.store_factor(store_code),
+            "clamp_note": note,
+        }
+
+    def unfreeze(self, reason: str = "人工复核后解除") -> dict[str, Any]:
+        """人工复核确认数据可信后，解除校准冻结。"""
+        self.state["frozen"] = False
+        self.state["frozen_reason"] = f"已解除（{reason}）"
+        self.save()
+        return {"frozen": False, "reason": self.state["frozen_reason"]}
+
+    def integrity_report(self) -> dict[str, Any]:
+        """输出校准数据完整性报告，供审计。"""
+        samples = self.state["samples"]
+        rejected = self.state["rejected"]
+        by_source: dict[str, int] = {}
+        for s in samples:
+            by_source[s.get("source", "unknown")] = by_source.get(s.get("source", "unknown"), 0) + 1
+        return {
+            "samples_accepted": len(samples),
+            "samples_rejected": len(rejected),
+            "accepted_by_source": by_source,
+            "frozen": bool(self.state.get("frozen")),
+            "frozen_reason": self.state.get("frozen_reason", ""),
+            "rejected_detail": [
+                {"at": r.get("at"), "actual": r.get("actual"), "reasons": r.get("reasons", [])}
+                for r in rejected[-10:]
+            ],
         }
 
 
@@ -252,6 +368,8 @@ class Suggestion:
     fits: bool
     score: float
     reasons: list[str]
+    safe_wait_minutes: float = 0.0
+    guard_note: str = ""
 
 
 def recommend(
@@ -271,13 +389,24 @@ def recommend(
 
     for item in items:
         est = model.estimate([item], at=at, store_code=store_code, campaign_active=campaign_active)
+        safe_est = model.estimate([item], at=at, store_code=store_code,
+                                  campaign_active=campaign_active, safe=True)
         wait = est.minutes
-        fits = wait <= budget_minutes
+        safe_wait = safe_est.minutes
+
+        # R5：判定口径用保守包络，永不允许比未校准基线更乐观
+        fits = safe_wait <= budget_minutes
         reasons: list[str] = []
         if fits:
-            reasons.append(f"预计 {wait:.1f} 分钟可取，在 {budget_minutes:.0f} 分钟课间窗口内")
+            reasons.append(
+                f"保守预估 {safe_wait:.1f} 分钟可取（点估计 {wait:.1f} 分钟），"
+                f"在 {budget_minutes:.0f} 分钟课间窗口内"
+            )
         else:
-            reasons.append(f"预计 {wait:.1f} 分钟，超出课间窗口 {wait - budget_minutes:.1f} 分钟")
+            reasons.append(
+                f"保守预估 {safe_wait:.1f} 分钟，超出课间窗口 {safe_wait - budget_minutes:.1f} 分钟"
+                + (f"（点估计 {wait:.1f} 分钟）" if wait < safe_wait else "")
+            )
 
         # 出餐速度分（越快越高）
         speed = max(0.0, 1.0 - wait / max(budget_minutes * 2, 1.0))
@@ -303,7 +432,12 @@ def recommend(
         if not fits:
             score *= 0.35  # 来不及的强惩罚
 
-        results.append(Suggestion(item, wait, fits, score, reasons))
+        guard_note = ""
+        if model.state.get("frozen"):
+            guard_note = "校准已冻结（疑似批量点完成污染），当前使用未校准基线"
+
+        results.append(Suggestion(item, wait, fits, score, reasons,
+                                  safe_wait_minutes=safe_wait, guard_note=guard_note))
 
     results.sort(key=lambda s: (-s.fits, -s.score))
     feasible = [s for s in results if s.fits][:top_k]
@@ -364,14 +498,19 @@ def parse_menu(raw: dict[str, Any]) -> list[Item]:
 
 def humanize(estimate: Estimate) -> str:
     b = estimate.breakdown
+    env = "保守包络（用于判定）" if b.get("envelope") == "safe" else "点估计（用于排序）"
     lines = [
+        f"口径：{env}",
         f"预计等待：{estimate.minutes:.1f} 分钟（区间 {estimate.low:.1f}–{estimate.high:.1f}）",
         f"  基准出餐 {b['base_minutes']} 分钟",
         f"  时段系数 {b['time_factor']['value']}（{b['time_factor']['label']}）",
         f"  课间脉冲 {b['break_pulse']['value']}"
         + ("（当前处于课间窗口）" if b["break_pulse"]["in_break"] else ""),
         f"  促销系数 {b['campaign_factor']}",
-        f"  门店系数 {b['store_factor']}（校准样本 {b['calibration_samples']} 条）",
+        f"  门店系数 {b['store_factor']}"
+        + (f"（原始值 {b['store_factor_raw']}）" if b.get("store_factor_raw") != b["store_factor"] else "")
+        + f"，校准样本 {b['calibration_samples']} 条"
+        + ("，**校准已冻结**" if b.get("calibration_frozen") else ""),
         f"  负载系数 {b['load_factor']['value']}（近 15 分钟 {b['load_factor']['recent_orders']} 单）",
     ]
     return "\n".join(lines)
