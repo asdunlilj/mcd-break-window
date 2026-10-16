@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fff8f6">
+<meta name="format-detection" content="telephone=no,address=no,email=no">
+<title>麦麦课间窗口 · 麦当劳德阳罗江区四川工业科技学院校内商业街餐厅</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+     background:#f5f6f8;color:#1a1d21;line-height:1.65;
+     padding:clamp(14px,3vw,28px) clamp(12px,2.6vw,20px) clamp(34px,6vw,60px);
+     overflow-wrap:break-word;word-break:break-word}
+button,summary,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+img,table{max-width:100%}
+.wrap{max-width:1060px;margin:0 auto}
+
+header{background:#fff;border-radius:clamp(10px,2.4vw,14px);padding:clamp(16px,3.4vw,24px) clamp(15px,3.4vw,28px);
+       border:1px solid #e6e8ec;margin-bottom:clamp(12px,2.4vw,18px)}
+h1{font-size:clamp(18px,4.4vw,23px);font-weight:700;letter-spacing:-.2px;line-height:1.3}
+h1 span{color:#c0392b}
+.sub{color:#5b6270;font-size:clamp(12.5px,3.1vw,13.5px);margin-top:6px}
+.meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.chip{background:#f1f3f6;border:1px solid #e2e5ea;border-radius:999px;padding:4px 11px;
+      font-size:clamp(11.5px,2.9vw,12.5px);color:#39404d}
+
+section{background:#fff;border-radius:clamp(10px,2.4vw,14px);
+        padding:clamp(15px,3.4vw,22px) clamp(14px,3.4vw,26px);
+        border:1px solid #e6e8ec;margin-bottom:clamp(12px,2.4vw,18px)}
+h2{font-size:clamp(14px,3.4vw,15px);font-weight:650;margin-bottom:13px;display:flex;align-items:center;gap:8px}
+h2::before{content:"";width:3px;height:15px;background:#c0392b;border-radius:2px;flex:0 0 auto}
+/* 面板标题：类型 / 时间 / 课程对 三段可换行对齐，窄屏不会挤成一团 */
+h2.ph{flex-wrap:wrap;gap:4px 10px;align-items:baseline;line-height:1.5}
+.ph .pt{font-weight:700;font-size:clamp(14px,3.6vw,15.5px)}
+.ph .pw{font-weight:650;font-variant-numeric:tabular-nums;font-size:clamp(13.5px,3.4vw,15px)}
+.ph .pl{color:#6b7280;font-weight:500;font-size:.92em}
+
+.prob{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}
+.pcard{border-radius:10px;padding:13px 15px;font-size:clamp(12.5px,3.1vw,13.5px);border:1px solid}
+.pcard h3{font-size:clamp(12.5px,3.1vw,13.5px);font-weight:650;margin-bottom:6px}
+.pcard.s{background:#fdf6f5;border-color:#f3dbd8;color:#7a2e26}
+.pcard.m{background:#f4f8ff;border-color:#d8e5fb;color:#1c3f77}
+
+/* 时间轴用自适应网格而不是横向滚动：
+   移动端横向滚动是可用性陷阱（用户看不出右边还有内容） */
+.tl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,124px),1fr));gap:8px;margin-bottom:11px}
+.win{min-height:54px;cursor:pointer;border:1.5px solid #e2e5ea;background:#fff;border-radius:10px;
+     padding:8px 12px;text-align:left;font-family:inherit;transition:.15s;
+     display:flex;flex-direction:column;justify-content:center;gap:1px}
+.win:hover{border-color:#b9c0cc}
+.win.on{border-color:#c0392b;background:#fef7f6;box-shadow:0 0 0 3px rgba(192,57,43,.09)}
+.win .t{font-size:clamp(13px,3.3vw,14px);font-weight:650;font-variant-numeric:tabular-nums}
+.win .d{font-size:clamp(11px,2.9vw,11.5px);color:#6b7280}
+.win .k{font-size:11px;font-weight:600;margin-top:3px;display:inline-block;padding:1px 7px;border-radius:999px;align-self:flex-start}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:11px}
+.rec{border:1px solid #e6e8ec;border-radius:11px;padding:14px 15px;background:#fff;position:relative}
+.rec.no{opacity:.55;border-style:dashed}
+.rec .rk{position:absolute;top:12px;right:13px;font-size:11px;color:#9aa1ad;font-weight:600}
+.rec .nm{font-size:clamp(13.5px,3.5vw,15px);font-weight:650;padding-right:26px;line-height:1.4}
+.rec .pr{font-size:clamp(12.5px,3.2vw,13px);color:#c0392b;font-weight:650;margin-top:4px}
+.rec .wt{font-size:clamp(12px,3vw,12.5px);color:#4a5160;margin-top:9px;padding-top:9px;border-top:1px dashed #e9ebef}
+.rec .wt b{font-size:clamp(15px,3.9vw,16px);color:#1a1d21;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;background:#f1f3f6;border-radius:5px;padding:1px 7px;
+     font-size:clamp(11px,2.8vw,11.5px);color:#4a5160;margin-top:6px}
+.avoid{margin-top:12px;background:#fffbeb;border:1px solid #f5e2ac;border-radius:10px;
+       padding:10px 13px;font-size:clamp(12px,3vw,13px);color:#7a5c12}
+
+table{width:100%;border-collapse:collapse;font-size:clamp(11.5px,2.9vw,13px)}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #eef0f3;overflow-wrap:anywhere;vertical-align:top}
+th{color:#6b7280;font-weight:600;font-size:clamp(11px,2.8vw,12px)}
+td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+code{background:#f1f3f6;padding:1.5px 6px;border-radius:5px;font-size:clamp(11.5px,2.9vw,12.5px);
+     font-family:ui-monospace,Menlo,Consolas,monospace}
+.formula{background:#f8f9fb;border:1px solid #e9ebef;border-radius:9px;padding:12px 14px;
+         font-size:clamp(10.5px,2.7vw,13px);font-family:ui-monospace,Menlo,Consolas,monospace;
+         color:#2b3038;line-height:1.75;margin-bottom:13px}
+details{margin-top:12px}
+summary{cursor:pointer;font-size:clamp(12px,3vw,13px);color:#1f6feb;font-weight:600;
+        user-select:none;padding:7px 0;min-height:34px;display:flex;align-items:center}
+.note{font-size:clamp(11.5px,2.9vw,12.5px);color:#6b7280;margin-top:11px;line-height:1.8}
+.warn{background:#fef7f6;border:1px solid #f3dbd8;border-radius:9px;padding:10px 13px;
+      font-size:clamp(12px,3vw,13px);color:#7a2e26;margin-bottom:13px}
+footer{text-align:center;font-size:clamp(11px,2.8vw,12px);color:#9aa1ad;margin-top:clamp(18px,4vw,26px);line-height:1.9}
+
+/* 窄屏二次收紧：更小的行内边距 + 详情表格字号 */
+@media(max-width:420px){
+  th,td{padding:6px 4px}
+  .rec{padding:13px 13px}
+  .chip{padding:3px 9px}
+}
+/* 打印/导出 PDF 时去掉交互背景色 */
+@media print{body{background:#fff;padding:0}section,header{border-color:#ddd;break-inside:avoid}}
+
+/* ── 客户版专用组件 ── */
+.hero{background:linear-gradient(160deg,#fff 0%,#fff8f6 100%);border:1px solid #f0e2de}
+.hero h1{font-size:clamp(21px,5.2vw,30px);line-height:1.28;margin-bottom:8px}
+.hero .lead{font-size:clamp(13.5px,3.5vw,16px);color:#4a5160;line-height:1.7}
+.hero .lead b{color:#c0392b}
+.brand{display:inline-flex;align-items:center;gap:8px;background:#c0392b;color:#fff;
+       border-radius:999px;padding:5px 14px;font-size:clamp(12px,3vw,13px);font-weight:650;margin-bottom:14px}
+.quote{background:#fbfbfc;border-left:4px solid #c0392b;border-radius:0 10px 10px 0;
+       padding:14px 16px;font-size:clamp(13px,3.4vw,14.5px);line-height:1.85;color:#33393f;margin-bottom:15px}
+.quote .src{display:block;margin-top:9px;font-size:.86em;color:#8b93a0}
+.verdict{display:flex;align-items:flex-start;gap:12px;background:#f1f8f3;border:1px solid #cfe6d6;
+         border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.verdict.maybe{background:#fffaf0;border-color:#f0e0bd}
+.verdict .ico{font-size:20px;line-height:1.35;flex:0 0 auto}
+.verdict .vt{font-size:clamp(13.5px,3.5vw,15.5px);font-weight:650;color:#1d5c37;line-height:1.6}
+.verdict.maybe .vt{color:#8a6412}
+.verdict .vs{font-size:clamp(11.5px,3vw,12.5px);color:#5b6270;font-weight:400;margin-top:4px}
+.chev{width:100%;background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 14px;
+      margin-bottom:10px;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit}
+.chev .n{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#c0392b;color:#fff;
+         font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.chev .t{font-size:clamp(13px,3.3vw,14.5px);font-weight:650;line-height:1.45}
+.chev .d{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:2px;font-weight:400}
+.bar{background:#f4f6f8;border-radius:10px;padding:13px 15px;margin-top:14px}
+.bar .row{display:flex;justify-content:space-between;font-size:clamp(12px,3.1vw,13px);margin-bottom:7px}
+.bar .row b{font-variant-numeric:tabular-nums}
+.bar .track{height:9px;border-radius:5px;background:#e4e8ed;overflow:hidden;margin-bottom:5px}
+.bar .fill{height:100%;border-radius:5px}
+.bar .cap{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:9px;line-height:1.7}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:11px;margin-top:4px}
+.num{background:#f8f9fb;border:1px solid #eaedf2;border-radius:11px;padding:14px 15px}
+.num .k{font-size:clamp(20px,5vw,25px);font-weight:750;color:#c0392b;font-variant-numeric:tabular-nums;line-height:1.15}
+.num .l{font-size:clamp(11.5px,3vw,12.5px);color:#5b6270;margin-top:5px;line-height:1.6}
+.steps{counter-reset:s}
+.step{display:flex;gap:13px;padding:13px 0;border-bottom:1px dashed #e9ebef}
+.step:last-child{border-bottom:0}
+.step .idx{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:#f1f3f6;color:#39404d;
+           font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step .sm{font-size:clamp(12.5px,3.2vw,13.5px);font-weight:650}
+.step .sd{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:3px;line-height:1.75}
+.ask{background:#f4f8ff;border:1px solid #d8e5fb;border-radius:11px;padding:14px 16px;
+     font-size:clamp(12.5px,3.2vw,13.5px);color:#1c3f77;line-height:1.8;margin-top:13px}
+.ask b{color:#123a6e}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="brand">课间取餐体验方案</span>
+    <h1>让课间十分钟，<br>不再靠运气</h1>
+    <div class="lead">
+      为 <b>麦当劳德阳罗江区四川工业科技学院校内商业街餐厅</b> 定制。学生下课就知道<b>该点什么、大概几分钟能拿到</b>；
+      门店的课间订单从做得慢的餐品，流向做得快的餐品。
+    </div>
+    <div class="meta">
+      <span class="chip">四川工业科技学院校内商业街</span>
+      <span class="chip">营业 09:00–23:00</span>
+      <span class="chip">2026-10-16（周五）</span>
+      <span class="chip">在售餐品 121 项</span>
+      <span class="chip">数据来自麦当劳官方接口，实时生成</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>您提出的问题</h2>
+    <div class="quote">
+      课间休息时间有限，同学们到店后再下单可能会怕等餐超时迟到；但提前把餐点好，
+      如果等很久来取又会餐品品质不好。系统如果能提前告知大概多久可取餐，
+      且如果能做到推荐餐品，既能减少学生焦虑，也能平缓门店高峰压力。
+      <span class="src">—— 门店经理反馈</span>
+    </div>
+    <div class="prob">
+      <div class="pcard s">
+        <h3>学生这边</h3>
+        只有 10 分钟课间，完全不知道要等多久。到店再点怕迟到，提前点又怕放凉——
+        <b>只能赌</b>。
+      </div>
+      <div class="pcard m">
+        <h3>门店这边</h3>
+        课间客流集中，做得慢的餐品一旦被集中点，后面全堵住。
+        <b>不是人手不够，是点单结构不巧</b>。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>我们做了三件事</h2>
+    <div class="chev"><span class="n">1</span><span><span class="t">下单前就告诉学生大概几分钟能拿到</span>
+      <span class="d">依据餐品做法、当前时段忙闲、是不是课间、当天有没有活动综合估算</span></span></div>
+    <div class="chev"><span class="n">2</span><span><span class="t">在课间优先推荐做得快的餐品</span>
+      <span class="d">同样的课间订单量，结构变了，出餐峰值就被削平一部分</span></span></div>
+    <div class="chev"><span class="n">3</span><span><span class="t">越用越贴合这家店</span>
+      <span class="d">参考本店实际取餐记录自动校准，不需要人工填表</span></span></div>
+  </section>
+
+  <section>
+    <h2>今天的实际效果（点击时段切换）</h2>
+    <div class="tl" id="tl"></div>
+    <div class="note" id="tl-note"></div>
+  </section>
+
+  <section id="panel"></section>
+
+  <section>
+    <h2>对门店的三个好处</h2>
+    <div class="prob">
+      <div class="pcard m"><h3>削平课间峰值</h3>
+        课间只推做得快的餐品，把慢工序餐品的订单分流出去。看板里的对比条就是这个差值的量化。</div>
+      <div class="pcard m"><h3>减少"等太久不来了"</h3>
+        学生知道要等多久，就能自己决定点还是换。减少点完又取消、或不取造成的损耗。</div>
+      <div class="pcard m"><h3>减少口感投诉</h3>
+        提前点好却放凉的投诉，本质是"学生高估了取餐时间"。预估做准，这类投诉自然减少。</div>
+    </div>
+    <div class="ask">
+      <b>需要说明的一点：</b>这套预估是"算出来的"，不是接门店的排队系统——
+      麦当劳开放接口里<b>没有</b>提供等待时长数据，我们是用餐品做法和客流规律推算的。
+      所以初期会有偏差，靠实际记录逐步校准。这一点我们如实告知，不做夸大。
+    </div>
+  </section>
+
+  <section>
+    <h2>建议的试点方式</h2>
+    <div class="steps">
+      <div class="step"><span class="idx">1</span><span><span class="sm">先在校内群或门店小范围试两周</span>
+        <span class="sd">学生打开看板就知道当下点什么、大概多久能拿到，不需要装任何东西。</span></span></div>
+      <div class="step"><span class="idx">2</span><span><span class="sm">请店长校准两个参数</span>
+        <span class="sd">① 从教室走到门店再走回来大约几分钟；② 哪些餐品做得快、哪些做得慢。
+        这两项确认后，预估准确度会明显提升。</span></span></div>
+      <div class="step"><span class="idx">3</span><span><span class="sm">两周后看三个数</span>
+        <span class="sd">课间时段的订单结构是否向快餐品偏移、学生超时投诉是否减少、餐品放凉的反馈是否减少。
+        这些都是可对照的，不必凭感觉判断效果。</span></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>数据与隐私</h2>
+    <div class="note">
+      只看餐品、价格、活动这类公开信息，以及本店自己的取餐耗时记录用于校准。
+      <b>不采集学生个人信息，不存储订单号、手机号</b>，不做二次分发。
+      高峰期操作繁忙时产生的异常记录会被自动过滤，避免把预估带偏 —— 也就是说，
+      <b>再忙的时候，这套预估也只会偏保守，不会报得比实际更乐观</b>。
+    </div>
+  </section>
+
+  <footer>
+    四川工业科技学院　冬季作息（10月1日—次年5月1日）· 数据生成于 2026-10-16 20:34:18<br>
+    本页面为参赛作品演示，非麦当劳官方产品；餐品信息与价格以麦当劳官方渠道为准
+  </footer>
+</div>
+
+<script>
+const DATA = {"store": {"storeCode": "3450415", "storeName": "麦当劳德阳罗江区四川工业科技学院校内商业街餐厅", "address": "四川工业科技学院校内商业街", "distance": 337, "businessStatus": true, "businessStartTime": "09:00", "businessEndTime": "23:00", "longitude": 0.0, "latitude": 0.0, "reservation": true, "reservationTimeOptions": [{"date": "2026-10-16", "today": true, "reservationOptionText": "夜市(17:14至21:45)，宵夜(22:14至22:46)"}, {"date": "2026-10-17", "today": false, "reservationOptionText": "午餐(09:14至14:15)，下午茶(14:44至16:45)，夜市(17:14至21:45)，宵夜(22:14至22:46)"}]}, "storeCode": "3450415", "date": "2026-10-16", "weekday": "五", "schedule_label": "周五、周六", "school": "四川工业科技学院", "term": "冬季作息", "effective": "10月1日—次年5月1日", "store_hours": {"_comment": "门店营业时间（来自 query-nearby-stores 实测）。开门前进店无意义。", "open": "09:00", "close": "23:00"}, "walking": 4.0, "menu_count": 121, "campaign_active": true, "server": "mcd-mcp v1.0.0", "generated_at": "2026-10-16 20:34:18", "frozen": false, "windows": [{"start": "09:05", "end": "09:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第一节课 → 第二节课", "budget": 6.0, "weights": {"speed": 0.5, "completeness": 0.05, "nutrition": 0.2, "price": 0.25, "tightness": 1.0}, "recommendations": [{"rank": 1, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.755, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "09:05", "end": "09:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第一节课 → 第二节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "板烧鸡腿堡", "price": 23.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.735, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "09:05", "end": "09:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第一节课 → 第二节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1406", "name": "板烧鸡腿堡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "巨无霸", "price": 26.5, "category": "牛肉/鱼汉堡", "completeness": 0.6, "fits": true, "wait": 5.9, "safe_wait": 5.9, "score": 0.734, "breakdown": {"envelope": "point", "base_minutes": 3.5, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "09:05", "end": "09:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第一节课 → 第二节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1100", "name": "巨无霸", "category": "牛肉/鱼汉堡", "quantity": 1, "base_minutes": 3.5}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 7.1, "category": "安格斯厚牛堡"}, "slow_count": 57, "infeasible_count": 0, "remaining": null}, {"start": "11:15", "end": "11:25", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第三节课 → 第四节课", "budget": 6.0, "weights": {"speed": 0.5, "completeness": 0.05, "nutrition": 0.2, "price": 0.25, "tightness": 1.0}, "recommendations": [{"rank": 1, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.755, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "11:15", "end": "11:25", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第三节课 → 第四节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "板烧鸡腿堡", "price": 23.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.735, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "11:15", "end": "11:25", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第三节课 → 第四节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1406", "name": "板烧鸡腿堡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "巨无霸", "price": 26.5, "category": "牛肉/鱼汉堡", "completeness": 0.6, "fits": true, "wait": 5.9, "safe_wait": 5.9, "score": 0.734, "breakdown": {"envelope": "point", "base_minutes": 3.5, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "11:15", "end": "11:25", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第三节课 → 第四节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1100", "name": "巨无霸", "category": "牛肉/鱼汉堡", "quantity": 1, "base_minutes": 3.5}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 7.1, "category": "安格斯厚牛堡"}, "slow_count": 57, "infeasible_count": 0, "remaining": null}, {"start": "13:55", "end": "14:05", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第五节课 → 第六节课", "budget": 6.0, "weights": {"speed": 0.5, "completeness": 0.05, "nutrition": 0.2, "price": 0.25, "tightness": 1.0}, "recommendations": [{"rank": 1, "name": "酥酥多笋卷", "price": 20.5, "category": "卷类", "completeness": 0.5, "fits": true, "wait": 5.3, "safe_wait": 5.3, "score": 0.696, "breakdown": {"envelope": "point", "base_minutes": 2.6, "time_factor": {"value": 1.2, "label": "午后"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "13:55", "end": "14:05", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第五节课 → 第六节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "521816", "name": "酥酥多笋卷", "category": "卷类", "quantity": 1, "base_minutes": 2.6}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "韩式甜辣酱鸡块8块", "price": 19.9, "category": "炸鸡", "completeness": 0.5, "fits": true, "wait": 5.9, "safe_wait": 5.9, "score": 0.65, "breakdown": {"envelope": "point", "base_minutes": 2.9, "time_factor": {"value": 1.2, "label": "午后"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "13:55", "end": "14:05", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第五节课 → 第六节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900015726", "name": "韩式甜辣酱鸡块8块", "category": "炸鸡", "quantity": 1, "base_minutes": 2.9}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "蘸酱麦麦脆汁鸡", "price": 11.9, "category": "炸鸡", "completeness": 0.5, "fits": true, "wait": 5.9, "safe_wait": 5.9, "score": 0.65, "breakdown": {"envelope": "point", "base_minutes": 2.9, "time_factor": {"value": 1.2, "label": "午后"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "13:55", "end": "14:05", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第五节课 → 第六节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016078", "name": "蘸酱麦麦脆汁鸡", "category": "炸鸡", "quantity": 1, "base_minutes": 2.9}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 8.5, "category": "安格斯厚牛堡"}, "slow_count": 84, "infeasible_count": 0, "remaining": null}, {"start": "16:05", "end": "16:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第七节课 → 第八节课", "budget": 6.0, "weights": {"speed": 0.5, "completeness": 0.05, "nutrition": 0.2, "price": 0.25, "tightness": 1.0}, "recommendations": [{"rank": 1, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.1, "safe_wait": 5.1, "score": 0.766, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "16:05", "end": "16:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第七节课 → 第八节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "板烧鸡腿堡", "price": 23.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 5.1, "safe_wait": 5.1, "score": 0.746, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "16:05", "end": "16:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第七节课 → 第八节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1406", "name": "板烧鸡腿堡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "巨无霸", "price": 26.5, "category": "牛肉/鱼汉堡", "completeness": 0.6, "fits": true, "wait": 5.6, "safe_wait": 5.6, "score": 0.746, "breakdown": {"envelope": "point", "base_minutes": 3.5, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "16:05", "end": "16:15", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第七节课 → 第八节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1100", "name": "巨无霸", "category": "牛肉/鱼汉堡", "quantity": 1, "base_minutes": 3.5}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 6.7, "category": "安格斯厚牛堡"}, "slow_count": 57, "infeasible_count": 0, "remaining": null}, {"start": "19:45", "end": "19:55", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第九节课 → 第十节课", "budget": 6.0, "weights": {"speed": 0.5, "completeness": 0.05, "nutrition": 0.2, "price": 0.25, "tightness": 1.0}, "recommendations": [{"rank": 1, "name": "酥酥多笋卷", "price": 20.5, "category": "卷类", "completeness": 0.5, "fits": true, "wait": 5.7, "safe_wait": 5.7, "score": 0.677, "breakdown": {"envelope": "point", "base_minutes": 2.6, "time_factor": {"value": 1.3, "label": "夜市时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "19:45", "end": "19:55", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第九节课 → 第十节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "521816", "name": "酥酥多笋卷", "category": "卷类", "quantity": 1, "base_minutes": 2.6}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "【美汁源】“多汁柠柠”", "price": 12.0, "category": "饮品", "completeness": 0.1, "fits": true, "wait": 1.8, "safe_wait": 1.8, "score": 0.802, "breakdown": {"envelope": "point", "base_minutes": 0.8, "time_factor": {"value": 1.3, "label": "夜市时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "19:45", "end": "19:55", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第九节课 → 第十节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "521817", "name": "【美汁源】“多汁柠柠”", "category": "饮品", "quantity": 1, "base_minutes": 0.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "蓝莓爆爆珠麦旋风", "price": 16.0, "category": "小食甜品", "completeness": 0.3, "fits": true, "wait": 3.9, "safe_wait": 3.9, "score": 0.72, "breakdown": {"envelope": "point", "base_minutes": 1.8, "time_factor": {"value": 1.3, "label": "夜市时段"}, "break_pulse": {"value": 1.35, "in_break": true}, "break_window": {"start": "19:45", "end": "19:55", "minutes": 10, "kind": "short", "kind_text": "小课间（仅快餐品可行）", "label": "第九节课 → 第十节课", "remaining_minutes": 10}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "521950", "name": "蓝莓爆爆珠麦旋风", "category": "小食甜品", "quantity": 1, "base_minutes": 1.8}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 9.2, "category": "安格斯厚牛堡"}, "slow_count": 95, "infeasible_count": 0, "remaining": null}, {"start": "10:00", "end": "10:30", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第二节课 → 第三节课", "budget": 26.0, "weights": {"speed": 0.228, "completeness": 0.283, "nutrition": 0.278, "price": 0.211, "tightness": 0.222}, "recommendations": [{"rank": 1, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 4.8, "safe_wait": 4.8, "score": 0.866, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "10:00", "end": "10:30", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第二节课 → 第三节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "龙焰芝士棒鸡腿堡三件套", "price": 29.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 5.7, "safe_wait": 5.7, "score": 0.864, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "10:00", "end": "10:30", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第二节课 → 第三节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016075", "name": "龙焰芝士棒鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "龙焰鸡腿堡三件套", "price": 26.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 5.7, "safe_wait": 5.7, "score": 0.864, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.0, "label": "上午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "10:00", "end": "10:30", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第二节课 → 第三节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016073", "name": "龙焰鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 6.3, "category": "安格斯厚牛堡"}, "slow_count": 0, "infeasible_count": 0, "remaining": null}, {"start": "14:50", "end": "15:20", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第六节课 → 第七节课", "budget": 26.0, "weights": {"speed": 0.228, "completeness": 0.283, "nutrition": 0.278, "price": 0.211, "tightness": 0.222}, "recommendations": [{"rank": 1, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 4.6, "safe_wait": 4.6, "score": 0.867, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "14:50", "end": "15:20", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第六节课 → 第七节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "龙焰芝士棒鸡腿堡三件套", "price": 29.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.865, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "14:50", "end": "15:20", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第六节课 → 第七节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016075", "name": "龙焰芝士棒鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "龙焰鸡腿堡三件套", "price": 26.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 5.4, "safe_wait": 5.4, "score": 0.865, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 0.95, "label": "下午课时段"}, "break_pulse": {"value": 1.2, "in_break": true}, "break_window": {"start": "14:50", "end": "15:20", "minutes": 30, "kind": "long", "kind_text": "大课间（可选常规餐品）", "label": "第六节课 → 第七节课", "remaining_minutes": 30}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016073", "name": "龙焰鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 6.0, "category": "安格斯厚牛堡"}, "slow_count": 0, "infeasible_count": 0, "remaining": null}, {"start": "12:10", "end": "13:10", "minutes": 60, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第四节课 → 第五节课", "budget": 56.0, "weights": {"speed": 0.15, "completeness": 0.35, "nutrition": 0.3, "price": 0.2, "tightness": 0.0}, "recommendations": [{"rank": 1, "name": "龙焰芝士棒鸡腿堡三件套", "price": 29.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 8.1, "safe_wait": 8.1, "score": 0.869, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.55, "label": "午高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "12:10", "end": "13:10", "minutes": 60, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第四节课 → 第五节课", "remaining_minutes": 60}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016075", "name": "龙焰芝士棒鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "龙焰鸡腿堡三件套", "price": 26.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 8.1, "safe_wait": 8.1, "score": 0.869, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.55, "label": "午高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "12:10", "end": "13:10", "minutes": 60, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第四节课 → 第五节课", "remaining_minutes": 60}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016073", "name": "龙焰鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 6.8, "safe_wait": 6.8, "score": 0.851, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.55, "label": "午高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "12:10", "end": "13:10", "minutes": 60, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第四节课 → 第五节课", "remaining_minutes": 60}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 9.0, "category": "安格斯厚牛堡"}, "slow_count": 0, "infeasible_count": 0, "remaining": null}, {"start": "17:00", "end": "19:00", "minutes": 120, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第八节课 → 第九节课", "budget": 116.0, "weights": {"speed": 0.15, "completeness": 0.35, "nutrition": 0.3, "price": 0.2, "tightness": 0.0}, "recommendations": [{"rank": 1, "name": "龙焰芝士棒鸡腿堡三件套", "price": 29.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 7.8, "safe_wait": 7.8, "score": 0.875, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.5, "label": "放学高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "17:00", "end": "19:00", "minutes": 120, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第八节课 → 第九节课", "remaining_minutes": 120}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016075", "name": "龙焰芝士棒鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 2, "name": "龙焰鸡腿堡三件套", "price": 26.9, "category": "组合餐", "completeness": 1.0, "fits": true, "wait": 7.8, "safe_wait": 7.8, "score": 0.875, "breakdown": {"envelope": "point", "base_minutes": 3.8, "time_factor": {"value": 1.5, "label": "放学高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "17:00", "end": "19:00", "minutes": 120, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第八节课 → 第九节课", "remaining_minutes": 120}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "9900016073", "name": "龙焰鸡腿堡三件套", "category": "组合餐", "quantity": 1, "base_minutes": 3.8}], "calibration_samples": 0, "calibration_frozen": false}}, {"rank": 3, "name": "麦香鸡", "price": 16.5, "category": "鸡肉汉堡", "completeness": 0.6, "fits": true, "wait": 6.6, "safe_wait": 6.6, "score": 0.856, "breakdown": {"envelope": "point", "base_minutes": 3.2, "time_factor": {"value": 1.5, "label": "放学高峰"}, "break_pulse": {"value": 1.1, "in_break": true}, "break_window": {"start": "17:00", "end": "19:00", "minutes": 120, "kind": "meal", "kind_text": "餐段（时间充裕）", "label": "第八节课 → 第九节课", "remaining_minutes": 120}, "campaign_factor": 1.25, "store_factor": 1.0, "store_factor_raw": 1.0, "load_factor": {"value": 1.0, "recent_orders": 0}, "items": [{"code": "1450", "name": "麦香鸡", "category": "鸡肉汉堡", "quantity": 1, "base_minutes": 3.2}], "calibration_samples": 0, "calibration_frozen": false}}], "avoid": null, "slowest": {"name": "培根安格斯厚牛堡", "wait": 8.7, "category": "安格斯厚牛堡"}, "slow_count": 0, "infeasible_count": 0, "remaining": null}]};
+const KIND_COLOR = {"short": "#c0392b", "long": "#1f6feb", "meal": "#2e7d32"};
+const KIND_SHORT = {"short": "课间", "long": "大课间", "meal": "饭点"};
+
+function fmt(n, d) { return (n === null || n === undefined) ? "—" : Number(n).toFixed(d === undefined ? 1 : d); }
+
+function verdictOf(w) {
+  const best = w.recommendations.find(r => r.fits);
+  if (best) {
+    return { ok: true, ico: "✅", t: `这个时段推荐点「${best.name}」，约 ${fmt(best.safe_wait, 0)} 分钟能拿到，来得及`,
+             s: `价格 ¥${fmt(best.price, 1)}　·　按 ${w.minutes} 分钟的时间窗口估算，已扣掉路上往返的时间` };
+  }
+  return { ok: false, ico: "⚠️", t: "这个时间段太紧，没有餐品能在窗口内做好",
+           s: "建议提前一节课点好，或者放到饭点再点" };
+}
+
+function renderTimeline() {
+  const tl = document.getElementById("tl");
+  tl.innerHTML = "";
+  DATA.windows.forEach((w, i) => {
+    const b = document.createElement("button");
+    b.className = "win" + (i === 0 ? " on" : "");
+    // 徽章显示该时段最快多久能拿到——比恒定的「来得及」有信息量得多
+    const fits = w.recommendations.filter(r => r.fits).map(r => r.safe_wait);
+    const badge = fits.length
+      ? `<span class="k" style="color:#2e7d32;background:#2e7d3218">最快 ${fmt(Math.min.apply(null, fits), 0)} 分钟</span>`
+      : `<span class="k" style="color:#c0392b;background:#c0392b18">来不及</span>`;
+    b.innerHTML = `<div class="t">${w.start}–${w.end}</div>`
+      + `<div class="d">${KIND_SHORT[w.kind] || w.kind} · ${w.minutes} 分钟</div>` + badge;
+    b.onclick = () => {
+      document.querySelectorAll(".win").forEach(e => e.classList.remove("on"));
+      b.classList.add("on");
+      renderPanel(i);
+    };
+    tl.appendChild(b);
+  });
+  document.getElementById("tl-note").textContent =
+    `共 ${DATA.windows.length} 个时段。点任意时段，看那个时间点该推什么、大概多久能拿到。`;
+}
+
+function renderPanel(i) {
+  const w = DATA.windows[i];
+  const p = document.getElementById("panel");
+  const v = verdictOf(w);
+  const col = KIND_COLOR[w.kind] || "#666";
+
+  const cards = w.recommendations.filter(r => r.fits).map(r => `
+    <div class="rec">
+      <div class="rk">#${r.rank}</div>
+      <div class="nm">${r.name}</div>
+      <div class="pr">¥${fmt(r.price, 1)}</div>
+      <span class="tag">${r.category}</span>
+      <div class="wt">约 <b>${fmt(r.safe_wait, 0)}</b> 分钟能拿到</div>
+    </div>`).join("");
+
+  // 价值对比条：推荐的餐品 vs 同一时段最慢的餐品
+  let compare = "";
+  const best = w.recommendations.find(r => r.fits);
+  if (best && w.slowest) {
+    const bMax = Math.max(best.safe_wait, w.slowest.wait, 1);
+    const cap = w.slow_count > 0
+      ? `这个时段的 ${DATA.menu_count} 项在售餐品里，有 <b>${w.slow_count}</b> 项点了会赶不上——`
+        + `看板直接把它们排除掉，学生不用自己判断该点哪个。`
+      : `这个时段时间充裕，所有餐品都来得及。看板改为按「吃得饱、性价比」排序，`
+        + `而不是一味求快——所以推的是套餐而不是饮料。`;
+    compare = `<div class="bar">
+      <div class="row"><span>推荐的 ${best.name}</span><b style="color:#2e7d32">约 ${fmt(best.safe_wait, 0)} 分钟</b></div>
+      <div class="track"><div class="fill" style="width:${(best.safe_wait / bMax * 100).toFixed(0)}%;background:#2e7d32"></div></div>
+      <div class="row" style="margin-top:10px"><span>同一时段最慢的 ${w.slowest.name}</span><b style="color:#c0392b">约 ${fmt(w.slowest.wait, 0)} 分钟</b></div>
+      <div class="track"><div class="fill" style="width:${(w.slowest.wait / bMax * 100).toFixed(0)}%;background:#c0392b"></div></div>
+      <div class="cap">${cap}</div>
+    </div>`;
+  }
+
+  p.innerHTML = `
+    <h2 class="ph">
+      <span class="pt" style="color:${col}">${KIND_SHORT[w.kind] || w.kind}</span>
+      <span class="pw">${w.start}–${w.end}</span>
+      <span class="pl">${w.label}</span>
+    </h2>
+    <div class="verdict ${v.ok ? "" : "maybe"}">
+      <span class="ico">${v.ico}</span>
+      <span><span class="vt">${v.t}</span><span class="vs">${v.s}</span></span>
+    </div>
+    <div class="meta" style="margin-bottom:14px">
+      <span class="chip">${w.minutes} 分钟时间窗口</span>
+      <span class="chip">扣掉路上往返后，可用于等餐 ${fmt(w.budget, 1)} 分钟</span>
+    </div>
+    <div class="grid">${cards || '<div class="note">该时段没有餐品能在窗口内做好。</div>'}</div>
+    ${compare}`;
+}
+
+renderTimeline();
+renderPanel(0);
+</script>
+</body>
+</html>

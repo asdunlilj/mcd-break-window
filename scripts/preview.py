@@ -124,12 +124,27 @@ def build(args) -> str:
             avoid = {"name": worst.item.name, "safe_wait": round(worst.safe_wait_minutes, 1),
                      "over": round(worst.safe_wait_minutes - budget, 1)}
 
+        # 客户版用：同窗口下最慢的在售餐品，用于「推荐 vs 最慢」的价值对比
+        slowest = None
+        for it in items:
+            e = model.estimate([it], at=at, store_code=args.store,
+                               campaign_active=camp, safe=True)
+            if slowest is None or e.minutes > slowest[1]:
+                slowest = (it, e.minutes)
+
         windows_payload.append({
             **w.as_dict(),
             "budget": round(budget, 1),
             "weights": w_weights,
             "recommendations": recs,
             "avoid": avoid,
+            "slowest": ({"name": slowest[0].name, "wait": round(slowest[1], 1),
+                         "category": slowest[0].category} if slowest else None),
+            "slow_count": sum(
+                1 for it in items
+                if model.estimate([it], at=at, store_code=args.store,
+                                  campaign_active=camp, safe=True).minutes > budget
+            ),
             "infeasible_count": sum(1 for r in recs if not r["fits"]),
             "remaining": max(0, int((w_minus(w.start, now)).total_seconds() // 60))
             if w.start <= now.strftime("%H:%M") < w.end else None,
@@ -155,7 +170,7 @@ def build(args) -> str:
         "frozen": bool(model.state.get("frozen")),
         "windows": windows_payload,
     }
-    return render(data)
+    return data
 
 
 def w_minus(hhmm: str, now: datetime):
@@ -449,24 +464,315 @@ renderPanel(0);
 """
 
 
+CLIENT_EXTRA_CSS = """
+/* ── 客户版专用组件 ── */
+.hero{background:linear-gradient(160deg,#fff 0%,#fff8f6 100%);border:1px solid #f0e2de}
+.hero h1{font-size:clamp(21px,5.2vw,30px);line-height:1.28;margin-bottom:8px}
+.hero .lead{font-size:clamp(13.5px,3.5vw,16px);color:#4a5160;line-height:1.7}
+.hero .lead b{color:#c0392b}
+.brand{display:inline-flex;align-items:center;gap:8px;background:#c0392b;color:#fff;
+       border-radius:999px;padding:5px 14px;font-size:clamp(12px,3vw,13px);font-weight:650;margin-bottom:14px}
+.quote{background:#fbfbfc;border-left:4px solid #c0392b;border-radius:0 10px 10px 0;
+       padding:14px 16px;font-size:clamp(13px,3.4vw,14.5px);line-height:1.85;color:#33393f;margin-bottom:15px}
+.quote .src{display:block;margin-top:9px;font-size:.86em;color:#8b93a0}
+.verdict{display:flex;align-items:flex-start;gap:12px;background:#f1f8f3;border:1px solid #cfe6d6;
+         border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.verdict.maybe{background:#fffaf0;border-color:#f0e0bd}
+.verdict .ico{font-size:20px;line-height:1.35;flex:0 0 auto}
+.verdict .vt{font-size:clamp(13.5px,3.5vw,15.5px);font-weight:650;color:#1d5c37;line-height:1.6}
+.verdict.maybe .vt{color:#8a6412}
+.verdict .vs{font-size:clamp(11.5px,3vw,12.5px);color:#5b6270;font-weight:400;margin-top:4px}
+.chev{width:100%;background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 14px;
+      margin-bottom:10px;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit}
+.chev .n{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#c0392b;color:#fff;
+         font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.chev .t{font-size:clamp(13px,3.3vw,14.5px);font-weight:650;line-height:1.45}
+.chev .d{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:2px;font-weight:400}
+.bar{background:#f4f6f8;border-radius:10px;padding:13px 15px;margin-top:14px}
+.bar .row{display:flex;justify-content:space-between;font-size:clamp(12px,3.1vw,13px);margin-bottom:7px}
+.bar .row b{font-variant-numeric:tabular-nums}
+.bar .track{height:9px;border-radius:5px;background:#e4e8ed;overflow:hidden;margin-bottom:5px}
+.bar .fill{height:100%;border-radius:5px}
+.bar .cap{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:9px;line-height:1.7}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:11px;margin-top:4px}
+.num{background:#f8f9fb;border:1px solid #eaedf2;border-radius:11px;padding:14px 15px}
+.num .k{font-size:clamp(20px,5vw,25px);font-weight:750;color:#c0392b;font-variant-numeric:tabular-nums;line-height:1.15}
+.num .l{font-size:clamp(11.5px,3vw,12.5px);color:#5b6270;margin-top:5px;line-height:1.6}
+.steps{counter-reset:s}
+.step{display:flex;gap:13px;padding:13px 0;border-bottom:1px dashed #e9ebef}
+.step:last-child{border-bottom:0}
+.step .idx{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:#f1f3f6;color:#39404d;
+           font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step .sm{font-size:clamp(12.5px,3.2vw,13.5px);font-weight:650}
+.step .sd{font-size:clamp(11.5px,3vw,12.5px);color:#6b7280;margin-top:3px;line-height:1.75}
+.ask{background:#f4f8ff;border:1px solid #d8e5fb;border-radius:11px;padding:14px 16px;
+     font-size:clamp(12.5px,3.2vw,13.5px);color:#1c3f77;line-height:1.8;margin-top:13px}
+.ask b{color:#123a6e}
+"""
+
+CLIENT_KIND = {"short": "课间", "long": "大课间", "meal": "饭点"}
+
+
+def render_client(data: dict) -> str:
+    """客户版：以门店经理的视角组织内容——从他的问题开头，以「你该怎么做」收尾。"""
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    store = data["store"]
+    name = esc(store.get("storeName") or f"门店 {data['storeCode']}")
+    addr = esc(store.get("address") or "")
+    hours = data["store_hours"]
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fff8f6">
+<meta name="format-detection" content="telephone=no,address=no,email=no">
+<title>麦麦课间窗口 · {name}</title>
+<style>{CSS}{CLIENT_EXTRA_CSS}</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="brand">课间取餐体验方案</span>
+    <h1>让课间十分钟，<br>不再靠运气</h1>
+    <div class="lead">
+      为 <b>{name}</b> 定制。学生下课就知道<b>该点什么、大概几分钟能拿到</b>；
+      门店的课间订单从做得慢的餐品，流向做得快的餐品。
+    </div>
+    <div class="meta">
+      <span class="chip">{esc(addr)}</span>
+      <span class="chip">营业 {esc(hours.get('open','—'))}–{esc(hours.get('close','—'))}</span>
+      <span class="chip">{esc(data['date'])}（周{esc(data['weekday'])}）</span>
+      <span class="chip">在售餐品 {data['menu_count']} 项</span>
+      <span class="chip">数据来自麦当劳官方接口，实时生成</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>您提出的问题</h2>
+    <div class="quote">
+      课间休息时间有限，同学们到店后再下单可能会怕等餐超时迟到；但提前把餐点好，
+      如果等很久来取又会餐品品质不好。系统如果能提前告知大概多久可取餐，
+      且如果能做到推荐餐品，既能减少学生焦虑，也能平缓门店高峰压力。
+      <span class="src">—— 门店经理反馈</span>
+    </div>
+    <div class="prob">
+      <div class="pcard s">
+        <h3>学生这边</h3>
+        只有 10 分钟课间，完全不知道要等多久。到店再点怕迟到，提前点又怕放凉——
+        <b>只能赌</b>。
+      </div>
+      <div class="pcard m">
+        <h3>门店这边</h3>
+        课间客流集中，做得慢的餐品一旦被集中点，后面全堵住。
+        <b>不是人手不够，是点单结构不巧</b>。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>我们做了三件事</h2>
+    <div class="chev"><span class="n">1</span><span><span class="t">下单前就告诉学生大概几分钟能拿到</span>
+      <span class="d">依据餐品做法、当前时段忙闲、是不是课间、当天有没有活动综合估算</span></span></div>
+    <div class="chev"><span class="n">2</span><span><span class="t">在课间优先推荐做得快的餐品</span>
+      <span class="d">同样的课间订单量，结构变了，出餐峰值就被削平一部分</span></span></div>
+    <div class="chev"><span class="n">3</span><span><span class="t">越用越贴合这家店</span>
+      <span class="d">参考本店实际取餐记录自动校准，不需要人工填表</span></span></div>
+  </section>
+
+  <section>
+    <h2>今天的实际效果（点击时段切换）</h2>
+    <div class="tl" id="tl"></div>
+    <div class="note" id="tl-note"></div>
+  </section>
+
+  <section id="panel"></section>
+
+  <section>
+    <h2>对门店的三个好处</h2>
+    <div class="prob">
+      <div class="pcard m"><h3>削平课间峰值</h3>
+        课间只推做得快的餐品，把慢工序餐品的订单分流出去。看板里的对比条就是这个差值的量化。</div>
+      <div class="pcard m"><h3>减少"等太久不来了"</h3>
+        学生知道要等多久，就能自己决定点还是换。减少点完又取消、或不取造成的损耗。</div>
+      <div class="pcard m"><h3>减少口感投诉</h3>
+        提前点好却放凉的投诉，本质是"学生高估了取餐时间"。预估做准，这类投诉自然减少。</div>
+    </div>
+    <div class="ask">
+      <b>需要说明的一点：</b>这套预估是"算出来的"，不是接门店的排队系统——
+      麦当劳开放接口里<b>没有</b>提供等待时长数据，我们是用餐品做法和客流规律推算的。
+      所以初期会有偏差，靠实际记录逐步校准。这一点我们如实告知，不做夸大。
+    </div>
+  </section>
+
+  <section>
+    <h2>建议的试点方式</h2>
+    <div class="steps">
+      <div class="step"><span class="idx">1</span><span><span class="sm">先在校内群或门店小范围试两周</span>
+        <span class="sd">学生打开看板就知道当下点什么、大概多久能拿到，不需要装任何东西。</span></span></div>
+      <div class="step"><span class="idx">2</span><span><span class="sm">请店长校准两个参数</span>
+        <span class="sd">① 从教室走到门店再走回来大约几分钟；② 哪些餐品做得快、哪些做得慢。
+        这两项确认后，预估准确度会明显提升。</span></span></div>
+      <div class="step"><span class="idx">3</span><span><span class="sm">两周后看三个数</span>
+        <span class="sd">课间时段的订单结构是否向快餐品偏移、学生超时投诉是否减少、餐品放凉的反馈是否减少。
+        这些都是可对照的，不必凭感觉判断效果。</span></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>数据与隐私</h2>
+    <div class="note">
+      只看餐品、价格、活动这类公开信息，以及本店自己的取餐耗时记录用于校准。
+      <b>不采集学生个人信息，不存储订单号、手机号</b>，不做二次分发。
+      高峰期操作繁忙时产生的异常记录会被自动过滤，避免把预估带偏 —— 也就是说，
+      <b>再忙的时候，这套预估也只会偏保守，不会报得比实际更乐观</b>。
+    </div>
+  </section>
+
+  <footer>
+    {esc(data['school'])}　{esc(data['term'])}（{esc(data['effective'])}）· 数据生成于 {esc(data['generated_at'])}<br>
+    本页面为参赛作品演示，非麦当劳官方产品；餐品信息与价格以麦当劳官方渠道为准
+  </footer>
+</div>
+
+<script>
+const DATA = {payload};
+const KIND_COLOR = {json.dumps(KIND_COLOR)};
+const KIND_SHORT = {json.dumps(CLIENT_KIND, ensure_ascii=False)};
+
+function fmt(n, d) {{ return (n === null || n === undefined) ? "—" : Number(n).toFixed(d === undefined ? 1 : d); }}
+
+function verdictOf(w) {{
+  const best = w.recommendations.find(r => r.fits);
+  if (best) {{
+    return {{ ok: true, ico: "✅", t: `这个时段推荐点「${{best.name}}」，约 ${{fmt(best.safe_wait, 0)}} 分钟能拿到，来得及`,
+             s: `价格 ¥${{fmt(best.price, 1)}}　·　按 ${{w.minutes}} 分钟的时间窗口估算，已扣掉路上往返的时间` }};
+  }}
+  return {{ ok: false, ico: "⚠️", t: "这个时间段太紧，没有餐品能在窗口内做好",
+           s: "建议提前一节课点好，或者放到饭点再点" }};
+}}
+
+function renderTimeline() {{
+  const tl = document.getElementById("tl");
+  tl.innerHTML = "";
+  DATA.windows.forEach((w, i) => {{
+    const b = document.createElement("button");
+    b.className = "win" + (i === 0 ? " on" : "");
+    // 徽章显示该时段最快多久能拿到——比恒定的「来得及」有信息量得多
+    const fits = w.recommendations.filter(r => r.fits).map(r => r.safe_wait);
+    const badge = fits.length
+      ? `<span class="k" style="color:#2e7d32;background:#2e7d3218">最快 ${{fmt(Math.min.apply(null, fits), 0)}} 分钟</span>`
+      : `<span class="k" style="color:#c0392b;background:#c0392b18">来不及</span>`;
+    b.innerHTML = `<div class="t">${{w.start}}–${{w.end}}</div>`
+      + `<div class="d">${{KIND_SHORT[w.kind] || w.kind}} · ${{w.minutes}} 分钟</div>` + badge;
+    b.onclick = () => {{
+      document.querySelectorAll(".win").forEach(e => e.classList.remove("on"));
+      b.classList.add("on");
+      renderPanel(i);
+    }};
+    tl.appendChild(b);
+  }});
+  document.getElementById("tl-note").textContent =
+    `共 ${{DATA.windows.length}} 个时段。点任意时段，看那个时间点该推什么、大概多久能拿到。`;
+}}
+
+function renderPanel(i) {{
+  const w = DATA.windows[i];
+  const p = document.getElementById("panel");
+  const v = verdictOf(w);
+  const col = KIND_COLOR[w.kind] || "#666";
+
+  const cards = w.recommendations.filter(r => r.fits).map(r => `
+    <div class="rec">
+      <div class="rk">#${{r.rank}}</div>
+      <div class="nm">${{r.name}}</div>
+      <div class="pr">¥${{fmt(r.price, 1)}}</div>
+      <span class="tag">${{r.category}}</span>
+      <div class="wt">约 <b>${{fmt(r.safe_wait, 0)}}</b> 分钟能拿到</div>
+    </div>`).join("");
+
+  // 价值对比条：推荐的餐品 vs 同一时段最慢的餐品
+  let compare = "";
+  const best = w.recommendations.find(r => r.fits);
+  if (best && w.slowest) {{
+    const bMax = Math.max(best.safe_wait, w.slowest.wait, 1);
+    const cap = w.slow_count > 0
+      ? `这个时段的 ${{DATA.menu_count}} 项在售餐品里，有 <b>${{w.slow_count}}</b> 项点了会赶不上——`
+        + `看板直接把它们排除掉，学生不用自己判断该点哪个。`
+      : `这个时段时间充裕，所有餐品都来得及。看板改为按「吃得饱、性价比」排序，`
+        + `而不是一味求快——所以推的是套餐而不是饮料。`;
+    compare = `<div class="bar">
+      <div class="row"><span>推荐的 ${{best.name}}</span><b style="color:#2e7d32">约 ${{fmt(best.safe_wait, 0)}} 分钟</b></div>
+      <div class="track"><div class="fill" style="width:${{(best.safe_wait / bMax * 100).toFixed(0)}}%;background:#2e7d32"></div></div>
+      <div class="row" style="margin-top:10px"><span>同一时段最慢的 ${{w.slowest.name}}</span><b style="color:#c0392b">约 ${{fmt(w.slowest.wait, 0)}} 分钟</b></div>
+      <div class="track"><div class="fill" style="width:${{(w.slowest.wait / bMax * 100).toFixed(0)}}%;background:#c0392b"></div></div>
+      <div class="cap">${{cap}}</div>
+    </div>`;
+  }}
+
+  p.innerHTML = `
+    <h2 class="ph">
+      <span class="pt" style="color:${{col}}">${{KIND_SHORT[w.kind] || w.kind}}</span>
+      <span class="pw">${{w.start}}–${{w.end}}</span>
+      <span class="pl">${{w.label}}</span>
+    </h2>
+    <div class="verdict ${{v.ok ? "" : "maybe"}}">
+      <span class="ico">${{v.ico}}</span>
+      <span><span class="vt">${{v.t}}</span><span class="vs">${{v.s}}</span></span>
+    </div>
+    <div class="meta" style="margin-bottom:14px">
+      <span class="chip">${{w.minutes}} 分钟时间窗口</span>
+      <span class="chip">扣掉路上往返后，可用于等餐 ${{fmt(w.budget, 1)}} 分钟</span>
+    </div>
+    <div class="grid">${{cards || '<div class="note">该时段没有餐品能在窗口内做好。</div>'}}</div>
+    ${{compare}}`;
+}}
+
+renderTimeline();
+renderPanel(0);
+</script>
+</body>
+</html>
+"""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="preview", description="生成本地 HTML 预览看板")
     parser.add_argument("--store", required=True, help="门店编码 storeCode")
     parser.add_argument("--city", default="德阳市", help="用于补全门店名称与地址")
     parser.add_argument("--keyword", default="四川工业科技学院", help="位置关键词")
     parser.add_argument("--top", type=int, default=3)
-    parser.add_argument("--out", default=None, help="输出 HTML 路径，默认 ../preview.html")
+    parser.add_argument("--mode", choices=["client", "review", "both"], default="both",
+                        help="client=客户展示版；review=技术审核版；both=两份都生成（默认）")
+    parser.add_argument("--out", default=None, help="输出目录或文件路径，默认项目根目录")
     args = parser.parse_args()
 
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if args.out and os.path.splitext(args.out)[1].lower() == ".html":
+        base_dir = os.path.dirname(os.path.abspath(args.out))
+    else:
+        base_dir = os.path.abspath(args.out) if args.out else root
+
+    targets: list[tuple[str, str]] = []
+    if args.mode in ("client", "both"):
+        targets.append(("client", os.path.join(base_dir, "preview-client.html")))
+    if args.mode in ("review", "both"):
+        targets.append(("review", os.path.join(base_dir, "preview.html")))
+    if args.out and os.path.splitext(args.out)[1].lower() == ".html" and len(targets) == 1:
+        targets[0] = (targets[0][0], os.path.abspath(args.out))
+
     try:
-        out = args.out or os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "preview.html"
-        )
-        doc = build(args)
-        with open(out, "w", encoding="utf-8") as fh:
-            fh.write(doc)
-        print(f"预览已生成：{out}")
-        print(f"文件大小：{len(doc.encode('utf-8')) / 1024:.1f} KB（单文件、可离线打开）")
+        data = build(args)
+        for mode, path in targets:
+            doc = render_client(data) if mode == "client" else render(data)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(doc)
+            tag = "客户展示版" if mode == "client" else "技术审核版"
+            print(f"[{tag}] {path}")
+            print(f"           {len(doc.encode('utf-8')) / 1024:.1f} KB（单文件、可离线打开）")
         return 0
     except McpError as exc:
         print(f"[MCP 错误] {exc}", file=sys.stderr)
