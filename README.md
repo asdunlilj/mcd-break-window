@@ -176,6 +176,24 @@ python preview.py --store 3450415
 
 ## 五、安装与使用
 
+### 没有 MCP Token 也能先跑起来
+
+`scripts/sample_data/` 内嵌了一份**真实 MCP 返回的离线快照**（120 项餐品、活动日历、门店信息、营养数据，抓取时间见 `meta.json`）。
+
+未设置 `MCD_MCP_TOKEN` 时，脚本会**自动回落到快照**，并在终端与页面顶部明确标注
+「离线快照 · 抓取于 …」——**不会把历史数据伪装成实时数据**。
+
+```bash
+cd scripts
+python cli.py advise --store 3450415      # 无需 Token
+python cli.py schedule                    # 无需 Token（纯本地作息表）
+python preview.py --store 3450415         # 生成两份看板
+python order_watch.py --demo              # 订单追踪演示，无需下单
+```
+
+> 唯一需要 Token 的是**真实订单追踪**（`order_watch --order <id>`），因为订单状态只有实时接口有。
+> 离线时会明确提示改用 `--demo`。
+
 ### 前置条件
 
 - Python 3.10+（**零第三方依赖**，只用标准库）

@@ -165,3 +165,29 @@ def parse_menu_block(text: str) -> dict[str, Any]:
             if depth == 0:
                 return json.loads(text[start : i + 1])
     return {}
+
+
+def make_client(allow_offline: bool = True):
+    """工厂：有 Token 走实时 MCP，没有则回落到本地离线快照。
+
+    返回 (client, mode)，mode ∈ {"live", "offline"}。
+    调用方**必须**在 mode=="offline" 时向用户明示"这不是实时数据"。
+    """
+    token = os.environ.get("MCD_MCP_TOKEN", "").strip()
+    if token:
+        return McdMcpClient(token), "live"
+
+    if allow_offline:
+        try:
+            from offline import OfflineClient, snapshot_available
+
+            if snapshot_available():
+                return OfflineClient(), "offline"
+        except Exception:  # noqa: BLE001 - 离线模块不可用时安静降级
+            pass
+
+    raise McpError(
+        "未找到 MCP Token，且本地离线快照不可用。\n"
+        "  方式一（实时）：设置环境变量 MCD_MCP_TOKEN\n"
+        "  方式二（离线）：确认 scripts/sample_data/ 下存在 menu.json 等快照文件"
+    )

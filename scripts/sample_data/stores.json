@@ -1,0 +1,26 @@
+[
+  {
+    "storeCode": "3450415",
+    "storeName": "麦当劳德阳罗江区四川工业科技学院校内商业街餐厅",
+    "address": "四川工业科技学院校内商业街",
+    "distance": 337,
+    "businessStatus": true,
+    "businessStartTime": "09:00",
+    "businessEndTime": "23:00",
+    "longitude": 0.0,
+    "latitude": 0.0,
+    "reservation": true,
+    "reservationTimeOptions": [
+      {
+        "date": "2026-10-17",
+        "today": true,
+        "reservationOptionText": "下午茶(14:44至16:45)，夜市(17:14至21:45)，宵夜(22:14至22:46)"
+      },
+      {
+        "date": "2026-10-18",
+        "today": false,
+        "reservationOptionText": "午餐(09:14至14:15)，下午茶(14:44至16:45)，夜市(17:14至21:45)，宵夜(22:14至22:46)"
+      }
+    ]
+  }
+]

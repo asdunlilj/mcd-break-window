@@ -29,7 +29,7 @@ from break_window import (
     recommend,
     score_weights,
 )
-from mcd_client import McdMcpClient, McpError
+from mcd_client import McpError, make_client
 
 NUTRITION_CACHE = "nutrition.txt"
 CAMPAIGN_KEYWORDS = ("上新", "联名", "限时", "第二份", "促销", "抢购")
@@ -38,12 +38,18 @@ CAMPAIGN_KEYWORDS = ("上新", "联名", "限时", "第二份", "促销", "抢�
 READY_STATUSES = {"2", "10", "3", "4"}
 
 
-def _client() -> McdMcpClient:
+def _client():
+    """优先实时 MCP；没有 Token 时自动回落本地离线快照，并明确告知用户。"""
     try:
-        return McdMcpClient()
+        client, mode = make_client()
     except McpError as exc:
         print(f"[配置错误] {exc}", file=sys.stderr)
         raise SystemExit(2)
+    if mode == "offline":
+        from offline import offline_banner
+        print(offline_banner())
+        print()
+    return client
 
 
 def _data(payload):
@@ -249,6 +255,11 @@ def cmd_watch(args) -> int:
     真正可信的真值是用户实际拿到餐的时刻（source="user"）。
     """
     client = _client()
+    if getattr(client, "is_offline", False):
+        print("订单追踪需要实时数据（查询真实订单状态），离线快照提供不了。")
+        print("想看追踪页效果，请运行演示模式：")
+        print("    python order_watch.py --demo")
+        return 1
     model = PrepModel()
     print(f"开始轮询订单 {args.order}（Ctrl+C 终止）…")
     print("提示：压单时门店可能提前点『已完成』，状态时刻仅作参考；")

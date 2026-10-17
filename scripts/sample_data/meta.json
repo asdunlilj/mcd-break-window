@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-10-17 15:32:31",
+  "server": {
+    "name": "mcd-mcp",
+    "version": "1.0.0"
+  },
+  "protocol": "2024-11-05",
+  "tool_count": 35,
+  "store": "3450415",
+  "notice": "离线快照：数据为抓取时刻的真实 MCP 返回，不是实时数据"
+}

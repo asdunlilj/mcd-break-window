@@ -30,7 +30,7 @@ from break_window import (  # noqa: E402
     recommend,
     score_weights,
 )
-from mcd_client import McdMcpClient, McpError  # noqa: E402
+from mcd_client import McpError, make_client  # noqa: E402
 
 NUTRITION_CACHE = "nutrition.txt"
 CAMPAIGN_KEYWORDS = ("上新", "联名", "限时", "第二份", "促销", "抢购")
@@ -56,7 +56,7 @@ def campaign_active(client: McdMcpClient, today: str) -> bool:
 
 
 def build(args) -> str:
-    client = McdMcpClient()
+    client, mode = make_client()
     info = client.initialize()
     server = info.get("serverInfo", {})
 
@@ -167,6 +167,8 @@ def build(args) -> str:
         "campaign_active": camp,
         "server": f"{server.get('name')} v{server.get('version')}",
         "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "offline": mode == "offline",
+        "offline_captured_at": info.get("captured_at", "") if mode == "offline" else "",
         "frozen": bool(model.state.get("frozen")),
         "windows": windows_payload,
     }
@@ -306,6 +308,7 @@ def render(data: dict) -> str:
       <span class="chip">适用作息：{esc(data['schedule_label'])}</span>
       <span class="chip">在售餐品 {data['menu_count']} 项</span>
       <span class="chip">MCP {esc(data['server'])}</span>
+      {('<span class="chip" style="background:#fff7ed;border-color:#f3ddc0;color:#8a4b12">离线快照 · 抓取于 ' + esc(data['offline_captured_at']) + '</span>') if data.get('offline') else ''}
     </div>
   </header>
 
@@ -547,7 +550,8 @@ def render_client(data: dict) -> str:
       <span class="chip">营业 {esc(hours.get('open','—'))}–{esc(hours.get('close','—'))}</span>
       <span class="chip">{esc(data['date'])}（周{esc(data['weekday'])}）</span>
       <span class="chip">在售餐品 {data['menu_count']} 项</span>
-      <span class="chip">数据来自麦当劳官方接口，实时生成</span>
+      <span class="chip">数据来自麦当劳官方接口</span>
+      {('<span class="chip" style="background:#fff7ed;border-color:#f3ddc0;color:#8a4b12">离线快照 · 抓取于 ' + esc(data['offline_captured_at']) + '</span>') if data.get('offline') else ''}
     </div>
   </header>
 
@@ -766,6 +770,10 @@ def main() -> int:
 
     try:
         data = build(args)
+        if data.get("offline"):
+            from offline import offline_banner
+            print(offline_banner())
+            print()
         for mode, path in targets:
             doc = render_client(data) if mode == "client" else render(data)
             with open(path, "w", encoding="utf-8") as fh:
