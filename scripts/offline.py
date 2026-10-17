@@ -97,5 +97,8 @@ def offline_banner() -> str:
     at = m.get("captured_at", "未知时间")
     return (
         f"[离线快照模式] 未检测到 MCD_MCP_TOKEN，已改用本地快照（抓取于 {at}）。\n"
-        f"               这是**历史数据，不是实时结果**；如需实时数据请设置 MCD_MCP_TOKEN。"
+        f"               这是**历史数据，不是实时结果**。\n"
+        f"               需要实时数据：打开 https://open.mcd.cn/mcp → 手机号登录 → 控制台\n"
+        f"               → 激活 → 复制 Token → 设为环境变量 MCD_MCP_TOKEN。\n"
+        f"               （麦当劳未提供 OAuth 授权流，Token 只能由用户本人在控制台自助领取）"
     )
