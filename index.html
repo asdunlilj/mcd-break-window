@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fff8f6">
+<meta name="description" content="麦麦课间窗口：在有限的课间里，告诉你现在点什么、大概几分钟能取到。基于麦当劳 MCP。">
+<title>麦麦课间窗口 · mcd-break-window</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+     background:#f5f6f8;color:#1a1d21;line-height:1.7;padding:clamp(14px,3vw,32px) clamp(12px,2.6vw,20px) 40px;
+     overflow-wrap:break-word}
+button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.wrap{max-width:860px;margin:0 auto}
+
+.hero{background:linear-gradient(160deg,#fff 0%,#fff8f6 100%);border:1px solid #f0e2de;
+      border-radius:16px;padding:clamp(20px,4.5vw,38px);margin-bottom:16px}
+.brand{display:inline-block;background:#c0392b;color:#fff;border-radius:999px;
+       padding:5px 14px;font-size:clamp(11.5px,2.9vw,12.5px);font-weight:650;margin-bottom:16px}
+h1{font-size:clamp(22px,5.6vw,34px);line-height:1.25;font-weight:750;letter-spacing:-.4px;margin-bottom:12px}
+h1 em{font-style:normal;color:#c0392b}
+.lead{font-size:clamp(13.5px,3.5vw,16px);color:#4a5160;line-height:1.75}
+.lead b{color:#c0392b}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}
+.chip{background:#f1f3f6;border:1px solid #e2e5ea;border-radius:999px;padding:4px 11px;
+      font-size:clamp(11.5px,2.9vw,12.5px);color:#39404d}
+.cta{display:flex;flex-wrap:wrap;gap:11px;margin-top:22px}
+.btn{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+     gap:2px;border-radius:11px;padding:13px 20px;
+     font-size:clamp(14px,3.6vw,15.5px);font-weight:650;line-height:1.35;
+     text-decoration:none;min-height:52px;transition:.15s;border:1.5px solid transparent;
+     flex:1 1 auto;min-width:0;text-align:center}
+.btn.primary{background:#c0392b;color:#fff}
+.btn.primary:hover{background:#ad3126}
+.btn.ghost{background:#fff;color:#1a1d21;border-color:#dfe3e8}
+.btn.ghost:hover{border-color:#b9c0cc}
+.btn span.sub{display:block;font-size:.74em;font-weight:500;opacity:.82;margin-top:0}
+
+section{background:#fff;border:1px solid #e6e8ec;border-radius:16px;
+        padding:clamp(18px,4vw,28px);margin-bottom:16px}
+h2{font-size:clamp(15px,3.6vw,17px);font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+h2::before{content:"";width:3px;height:16px;background:#c0392b;border-radius:2px;flex:0 0 auto}
+p{font-size:clamp(13px,3.3vw,14px);color:#3c434d;line-height:1.85}
+p+p{margin-top:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-top:4px}
+.card{border:1px solid #eaedf2;border-radius:12px;padding:15px 16px;background:#fafbfc}
+.card h3{font-size:clamp(13px,3.3vw,14px);font-weight:700;margin-bottom:7px}
+.card .txt{font-size:clamp(12px,3vw,13px);color:#5b6270;line-height:1.8}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:11px;margin-top:4px}
+.num{background:#f8f9fb;border:1px solid #eaedf2;border-radius:12px;padding:14px}
+.num .k{font-size:clamp(20px,5vw,26px);font-weight:750;color:#c0392b;line-height:1.15;
+        font-variant-numeric:tabular-nums}
+.num .l{font-size:clamp(11px,2.8vw,12px);color:#5b6270;margin-top:5px;line-height:1.6}
+ul{margin:8px 0 0 18px}
+li{font-size:clamp(12.5px,3.1vw,13.5px);color:#3c434d;line-height:1.9}
+.note{background:#fbfbfc;border:1px solid #eaedf2;border-radius:11px;padding:13px 15px;
+      font-size:clamp(12px,3vw,12.5px);color:#5b6270;line-height:1.85;margin-top:12px}
+.warn{background:#fffbeb;border:1px solid #f5e2ac;border-radius:11px;padding:13px 15px;
+      font-size:clamp(12px,3vw,12.5px);color:#7a5c12;line-height:1.85;margin-top:12px}
+code{background:#f1f3f6;padding:1.5px 6px;border-radius:5px;
+     font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.94em}
+footer{text-align:center;font-size:clamp(11px,2.8vw,12px);color:#9aa1ad;
+       margin-top:22px;line-height:2}
+footer a{color:#8b93a0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <span class="brand">2026 麦当劳程序员创意开发大赛参赛作品</span>
+  <h1>课间十分钟，<br><em>不再靠运气</em></h1>
+  <div class="lead">
+    学生在手机上先看到「这个课间点什么、大概几分钟能拿到」，<b>下单前就知道来不来得及</b>；
+    门店的课间订单从做得慢的餐品流向做得快的餐品，<b>出品峰值被削平一点</b>。
+  </div>
+  <div class="chips">
+    <span class="chip">麦当劳 MCP 真实数据</span>
+    <span class="chip">真实校内门店 3450415</span>
+    <span class="chip">真实冬季作息表</span>
+    <span class="chip">零第三方依赖</span>
+  </div>
+  <div class="cta">
+    <a class="btn primary" href="preview-client.html">
+      看课间推荐（在线体验）
+      <span class="sub">整份看板 · 可点时段切换</span>
+    </a>
+    <a class="btn ghost" href="order-status.html">
+      看订单追踪
+      <span class="sub">进度条 · 赏味倒计时</span>
+    </a>
+  </div>
+</div>
+
+<section>
+  <h2>要解决的问题</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>学生：只能赌</h3>
+      <div class="txt">只有 10 分钟课间，不知道要等多久。到店再点怕迟到，提前点好又怕放凉。
+      <b>零信息</b>下做选择。</div>
+    </div>
+    <div class="card">
+      <h3>门店：被动挨打</h3>
+      <div class="txt">课间客流集中，做得慢的餐品一旦被集中点，后面全堵住。
+      <b>不是人手不够，是点单结构不巧。</b></div>
+    </div>
+  </div>
+  <div class="note">
+    「要等多久」这件事<b>查不到</b>：麦当劳 MCP 全部 35 个 Tool 中，没有任何一个提供出餐时长或排队队列信号
+    （逐字段检索，命中数为 0）。所以只能<b>算</b>——这是本项目的主要技术工作。
+  </div>
+</section>
+
+<section>
+  <h2>怎么算的</h2>
+  <p>用六个系数把等待时长拆开，每一项都能解释、都能单独校准：</p>
+  <div class="nums">
+    <div class="num"><div class="k">6</div><div class="l">个系数<br>基准·时段·课间·促销·门店·负载</div></div>
+    <div class="num"><div class="k">9</div><div class="l">个课间窗口<br>由真实作息表自动推导</div></div>
+    <div class="num"><div class="k">5</div><div class="l">道数据防线<br>防止异常记录把预估带偏</div></div>
+    <div class="num"><div class="k">35</div><div class="l">个 MCP Tool<br>全量核查过</div></div>
+  </div>
+  <div class="note">
+    课间窗口分三类：<b>小课间</b>（≤12 分钟，只推快餐品）、<b>大课间</b>（≥25 分钟，推吃得饱的正餐）、
+    <b>饭点</b>（≥45 分钟，时间充裕）。窗口松紧不同，推荐的东西就不一样。
+  </div>
+  <div class="note">
+    「来不来得及」的判定用<b>保守口径</b>：预估只会比基线更悲观，不会更乐观。
+    宁可让学生多等一会儿，也不让他迟到。
+  </div>
+</section>
+
+<section>
+  <h2>订单追踪在做什么</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>进度条</h3>
+      <div class="txt">已等待 X 分钟 / 预计还需 Y 分钟，原地更新，不刷新整页。</div>
+    </div>
+    <div class="card">
+      <h3>识别「提前点完成」</h3>
+      <div class="txt">门店高峰期可能把订单批量点成已完成。若完成时间早于物理下界，
+      不显示「已完成」，而是给出保守剩余时间并提示到柜台核对。</div>
+    </div>
+    <div class="card">
+      <h3>官方赏味倒计时</h3>
+      <div class="txt">薯条起锅后 7 分钟、汉堡制作后 20–30 分钟，均为麦当劳官方公开标准。
+      其余品类官方未发布，一律显示「未知」。</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>三条硬约束（不做的比做的更重要）</h2>
+  <ul>
+    <li><b>不做「前方等待人数」</b>——MCP 没有门店队列接口。编造人数一旦被验证不符，工具就失信了。</li>
+    <li><b>不把状态机的「已完成」当真实交付</b>——高峰期会批量标记，需要按物理下界校正。</li>
+    <li><b>官方未发布的赏味时限一律显示「未知」</b>——不给一个看起来合理的数字。</li>
+  </ul>
+  <div class="warn">
+    <b>也不解决绝对产能。</b>如果课间 10 分钟涌入 200 单而厨房只能做 80 单，任何信息工具都救不了——
+    那是产能问题，不是信息问题。本工具只改变<b>需求结构</b>，不改变<b>需求总量</b>。
+  </div>
+</section>
+
+<section>
+  <h2>怎么看这个项目</h2>
+  <p>
+    <a href="SKILL.md">SKILL.md</a> 是 Skill 主文档；
+    <a href="docs/model.md">docs/model.md</a> 是模型推导与排序缺陷修复记录；
+    <a href="docs/data-integrity.md">docs/data-integrity.md</a> 是数据完整性防线；
+    <a href="docs/order-tracking-review.md">docs/order-tracking-review.md</a> 记录了「为什么排队人数做不了」。
+  </p>
+  <div class="note">
+    本地运行：<code>python scripts/cli.py advise --store 3450415</code>（需要麦当劳 MCP Token）<br>
+    离线演示：<code>python scripts/order_watch.py --demo</code>（无需 Token、无需下单）
+  </div>
+</section>
+
+<footer>
+  麦麦课间窗口 · 2026 麦当劳程序员创意开发大赛参赛作品<br>
+  本项目为独立参赛作品，<b>非麦当劳官方产品</b>，与麦当劳中国无隶属或背书关系。<br>
+  餐品信息与价格以麦当劳官方渠道为准 · <a href="LICENSE">MIT License</a>
+</footer>
+
+</div>
+</body>
+</html>

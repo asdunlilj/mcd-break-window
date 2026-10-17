@@ -2,9 +2,8 @@
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="refresh" content="8">
 <meta name="color-scheme" content="light">
-<title>订单追踪 · DEMO-0001</title>
+<title>订单追踪 · 已完成（存疑）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -37,24 +36,43 @@ h2::before{content:"";width:3px;height:14px;background:#c0392b;border-radius:2px
 .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:#2e7d32}.dot.warning{background:#e0a800}.dot.expired{background:#c0392b}.dot.unknown{background:#b9c0cc}
 .tiny{font-size:11.5px;color:#9aa1ad;margin-top:4px}
-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-th,td{text-align:left;padding:6px 5px;border-bottom:1px solid #eef0f3;vertical-align:top}
-th{color:#6b7280;font-weight:600;font-size:11.5px}
 footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-height:1.9}
+
+/* 自动更新状态条：明确告知「在自动更新」而不是让人以为页面在闪 bug */
+.livebar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+         background:#eef4ff;border:1px solid #d8e5fb;border-radius:11px;
+         padding:9px 13px;font-size:12.5px;color:#1c3f77;margin-bottom:14px}
+.livebar .pulse{width:8px;height:8px;border-radius:50%;background:#1f6feb;flex:0 0 auto;
+                animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.28}}
+.livebar.err{background:#fff7ed;border-color:#f3ddc0;color:#8a4b12}
+.livebar.err .pulse{background:#c0392b;animation:none}
+.livebar b{font-variant-numeric:tabular-nums}
+@media print{.livebar{display:none}}
 </style></head><body><div class="wrap">
 
+<div class="livebar" id="livebar">
+  <span class="pulse" id="liveDot"></span>
+  <span>本页<b>每 20 秒自动更新</b>（不是页面异常刷新）</span>
+  <span style="color:#6b7280">·</span>
+  <span>上次更新 <b id="updatedAt">2026-10-17 15:24:16</b></span>
+  <span style="color:#6b7280">·</span>
+  <span>下次 <b id="countdown">20</b> 秒</span>
+</div>
+<div class="tiny" id="liveMsg" style="margin:-8px 0 14px 2px"></div>
+
 <div class="card">
-  <h1>订单追踪 · 已完成（存疑）</h1>
-  <div class="sub">订单 DEMO-0001 · 门店 3450415 · 下单 2026-10-17 15:03:49</div>
-  <div class="big" style="margin-top:18px">4.0<small>分钟后可取</small></div>
-  <div class="bar warn"><i style="width:23%"></i></div>
-  <div class="row"><span>已等待 1.2 分钟</span><span>预计总时长 5.2 分钟</span></div>
-  <div class="verdict warn">门店已标记「已完成」，但距下单只有 1.2 分钟，低于物理下界 2.8 分钟——餐品不可能已做好。按当前压力推算，预计还需约 4.0 分钟。建议到柜台核对实物。</div>
+  <h1>订单追踪 · <span id="status">已完成（存疑）</span></h1>
+  <div class="sub">订单 DEMO-0001 · 门店 3450415 · 下单 2026-10-17 15:23:04</div>
+  <div class="big" style="margin-top:18px"><span id="remain">3.3</span><small>分钟后可取</small></div>
+  <div class="bar warn" id="bar"><i id="progress" style="width:26%"></i></div>
+  <div class="row"><span>已等待 <b id="elapsed">1.2</b> 分钟</span><span>预计总时长 <b id="total">4.5</b> 分钟</span></div>
+  <div class="verdict warn" id="verdict">门店已标记「已完成」，但距下单只有 1.2 分钟，低于物理下界 2.5 分钟——餐品不可能已做好。按当前压力推算，预计还需约 3.3 分钟。建议到柜台核对实物。</div>
 </div>
 
 <div class="card">
   <h2>官方赏味倒计时</h2>
-  <div class="shelf"><span class="dot ok"></span><span style="flex:1">麦辣鸡腿汉堡<div class="tiny">在官方赏味时限内（上限 30 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div><div class="shelf"><span class="dot ok"></span><span style="flex:1">薯条<div class="tiny">在官方赏味时限内（上限 7 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div>
+  <div id="shelfBox"><div class="shelf"><span class="dot ok"></span><span style="flex:1">麦辣鸡腿汉堡<div class="tiny">在官方赏味时限内（上限 30 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div><div class="shelf"><span class="dot ok"></span><span style="flex:1">薯条<div class="tiny">在官方赏味时限内（上限 7 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div></div>
   <div class="tiny">依据麦当劳官方公开标准：薯条起锅后最佳赏味 7 分钟；汉堡制作后 20–30 分钟可售时限。
   官方未发布其余品类的时限，因此显示"未知"，不做推测。</div>
 </div>
@@ -62,13 +80,81 @@ footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-hei
 <div class="card">
   <h2>追踪依据</h2>
   <div>
-    <span class="chip">物理下界 2.8 分钟</span>
-    <span class="chip">订单状态 已完成（存疑）</span>
-    <span class="chip">当前 第六节课 → 第七节课 剩余 15 分钟</span>
+    <span class="chip">物理下界 2.5 分钟</span>
+    <span class="chip">订单状态 <span id="status2">已完成（存疑）</span></span>
+    <span class="chip" id="win">当前不在课间窗口</span>
     <span class="chip">校准状态：正常</span>
   </div>
-  <div class="tiny">本页每 8 秒自动刷新（读取本地文件，无需服务器）。数据来源：麦当劳 MCP + 本机模型输出。</div>
+  <div class="tiny">数据来源：麦当劳 MCP + 本机模型输出。页面读取同目录下的
+  <code>order-status-data.js</code>，只更新数字与文案，不刷新整页。</div>
 </div>
 
-<footer>麦麦课间窗口 · 参赛作品演示，非麦当劳官方产品<br>页面生成于 2026-10-17 15:05:01</footer>
-</div></body></html>
+<footer>麦麦课间窗口 · 参赛作品演示，非麦当劳官方产品<br>页面生成于 2026-10-17 15:24:16</footer>
+</div>
+
+<script>
+window.20 = 20;
+(function () {
+  var REFRESH = 20;
+  var left = REFRESH;
+  var failed = false;
+
+  function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+  function applyData(d) {
+    if (!d) return;
+    document.getElementById('status').textContent = d.display_status;
+    document.getElementById('status2').textContent = d.display_status;
+    document.getElementById('remain').textContent = fmt(d.remaining);
+    document.getElementById('elapsed').textContent = fmt(d.elapsed);
+    document.getElementById('total').textContent = fmt(d.predicted_total);
+    document.getElementById('progress').style.width = d.progress + '%';
+    document.getElementById('bar').className = 'bar' + (d.anomaly ? ' warn' : '');
+    var v = document.getElementById('verdict');
+    v.className = 'verdict ' + d.tone;
+    v.textContent = d.verdict;
+    document.getElementById('win').textContent = d.window
+      ? ('当前 ' + d.window.label + ' 剩余 ' + d.window.remaining + ' 分钟')
+      : '当前不在课间窗口';
+    document.getElementById('shelfBox').innerHTML = (d.shelf || []).map(function (s) {
+      return '<div class="shelf"><span class="dot ' + s.status + '"></span>'
+        + '<span style="flex:1">' + s.item + '<div class="tiny">' + s.message + '</div></span>'
+        + '<span style="font-variant-numeric:tabular-nums;color:#6b7280">'
+        + fmt(s.elapsed_minutes) + ' 分钟</span></div>';
+    }).join('');
+    document.getElementById('updatedAt').textContent = d.now;
+    document.title = '订单追踪 · ' + d.display_status;
+  }
+
+  function loadData() {
+    var s = document.createElement('script');
+    s.src = 'order-status-data.js?t=' + Date.now();
+    s.onload = function () {
+      failed = false;
+      document.getElementById('livebar').className = 'livebar';
+      document.getElementById('liveMsg').textContent = '';
+      if (window.ORDER_DATA) applyData(window.ORDER_DATA);
+    };
+    s.onerror = function () {
+      failed = true;
+      document.getElementById('livebar').className = 'livebar err';
+      document.getElementById('liveMsg').textContent =
+        '自动更新暂时停了（没读到 order-status-data.js）。上面的数字停在「上次更新」那一刻，'
+        + '不是页面出错——重新运行 order_watch.py 就会继续。';
+    };
+    document.body.appendChild(s);
+  }
+
+  setInterval(function () {
+    left -= 1;
+    if (left <= 0) {
+      left = REFRESH;
+      loadData();
+    }
+    document.getElementById('countdown').textContent = left;
+  }, 1000);
+
+  loadData();
+})();
+</script>
+</body></html>

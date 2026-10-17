@@ -32,6 +32,9 @@ from break_window import Item, PrepModel
 TRACK_DIR = os.path.join(os.path.expanduser("~"), ".mcd-break-window", "tracking")
 OUT_HTML = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "order-status.html")
+OUT_DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "order-status-data.js")
+DEFAULT_REFRESH = 20  # 秒。8 秒太快，页面跳动会让人以为是 bug
 
 # 订单状态：数字码与中文文本两种口径都要认（query-order 返回数字，order-list 返回中文）
 STATUS_MAP = {
@@ -90,11 +93,11 @@ def evaluate(snap: dict, model: PrepModel, store: str) -> dict:
     elapsed = max(0.0, (now - created).total_seconds() / 60.0)
 
     items = [Item(code=c, name=n) for c, n in snap.get("items", [])]
-    base = sum(i.base_minutes for i in items) if items else 3.0
-    floor = max(0.7, 0.55 * base)          # 物理下界（与 R1 一致）
-
     est = model.estimate(items, at=created, store_code=store,
                          campaign_active=snap.get("campaign", False), safe=True)
+    # 物理下界必须与模型口径一致（并行折扣后的基准），否则会对"做得快"的门店误报
+    base = float(est.breakdown.get("base_minutes") or 3.0)
+    floor = max(0.7, 0.55 * base)
     predicted_total = max(est.minutes, base)  # 保守包络口径
     remaining = max(0.0, predicted_total - elapsed)
 
@@ -169,9 +172,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="refresh" content="8">
 <meta name="color-scheme" content="light">
-<title>订单追踪 · __ORDER__</title>
+<title>订单追踪 · __STATUS__</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -204,24 +206,43 @@ h2::before{content:"";width:3px;height:14px;background:#c0392b;border-radius:2px
 .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:#2e7d32}.dot.warning{background:#e0a800}.dot.expired{background:#c0392b}.dot.unknown{background:#b9c0cc}
 .tiny{font-size:11.5px;color:#9aa1ad;margin-top:4px}
-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-th,td{text-align:left;padding:6px 5px;border-bottom:1px solid #eef0f3;vertical-align:top}
-th{color:#6b7280;font-weight:600;font-size:11.5px}
 footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-height:1.9}
+
+/* 自动更新状态条：明确告知「在自动更新」而不是让人以为页面在闪 bug */
+.livebar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+         background:#eef4ff;border:1px solid #d8e5fb;border-radius:11px;
+         padding:9px 13px;font-size:12.5px;color:#1c3f77;margin-bottom:14px}
+.livebar .pulse{width:8px;height:8px;border-radius:50%;background:#1f6feb;flex:0 0 auto;
+                animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.28}}
+.livebar.err{background:#fff7ed;border-color:#f3ddc0;color:#8a4b12}
+.livebar.err .pulse{background:#c0392b;animation:none}
+.livebar b{font-variant-numeric:tabular-nums}
+@media print{.livebar{display:none}}
 </style></head><body><div class="wrap">
 
+<div class="livebar" id="livebar">
+  <span class="pulse" id="liveDot"></span>
+  <span>本页<b>每 __REFRESH__ 秒自动更新</b>（不是页面异常刷新）</span>
+  <span style="color:#6b7280">·</span>
+  <span>上次更新 <b id="updatedAt">__NOW__</b></span>
+  <span style="color:#6b7280">·</span>
+  <span>下次 <b id="countdown">__REFRESH__</b> 秒</span>
+</div>
+<div class="tiny" id="liveMsg" style="margin:-8px 0 14px 2px"></div>
+
 <div class="card">
-  <h1>订单追踪 · __STATUS__</h1>
+  <h1>订单追踪 · <span id="status">__STATUS__</span></h1>
   <div class="sub">订单 __ORDER__ · 门店 __STORE__ · 下单 __CREATED__</div>
-  <div class="big" style="margin-top:18px">__REMAIN__<small>分钟后可取</small></div>
-  <div class="bar __BARCLS__"><i style="width:__PROGRESS__%"></i></div>
-  <div class="row"><span>已等待 __ELAPSED__ 分钟</span><span>预计总时长 __TOTAL__ 分钟</span></div>
-  <div class="verdict __TONE__">__VERDICT__</div>
+  <div class="big" style="margin-top:18px"><span id="remain">__REMAIN__</span><small>分钟后可取</small></div>
+  <div class="bar __BARCLS__" id="bar"><i id="progress" style="width:__PROGRESS__%"></i></div>
+  <div class="row"><span>已等待 <b id="elapsed">__ELAPSED__</b> 分钟</span><span>预计总时长 <b id="total">__TOTAL__</b> 分钟</span></div>
+  <div class="verdict __TONE__" id="verdict">__VERDICT__</div>
 </div>
 
 <div class="card">
   <h2>官方赏味倒计时</h2>
-  __SHELF__
+  <div id="shelfBox">__SHELF__</div>
   <div class="tiny">依据麦当劳官方公开标准：薯条起锅后最佳赏味 7 分钟；汉堡制作后 20–30 分钟可售时限。
   官方未发布其余品类的时限，因此显示"未知"，不做推测。</div>
 </div>
@@ -230,34 +251,100 @@ footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-hei
   <h2>追踪依据</h2>
   <div>
     <span class="chip">物理下界 __FLOOR__ 分钟</span>
-    <span class="chip">订单状态 __STATUS__</span>
-    <span class="chip">__WINDOW__</span>
+    <span class="chip">订单状态 <span id="status2">__STATUS__</span></span>
+    <span class="chip" id="win">__WINDOW__</span>
     <span class="chip">校准状态：__FROZEN__</span>
   </div>
-  <div class="tiny">本页每 8 秒自动刷新（读取本地文件，无需服务器）。数据来源：麦当劳 MCP + 本机模型输出。</div>
+  <div class="tiny">数据来源：麦当劳 MCP + 本机模型输出。页面读取同目录下的
+  <code>order-status-data.js</code>，只更新数字与文案，不刷新整页。</div>
 </div>
 
 <footer>麦麦课间窗口 · 参赛作品演示，非麦当劳官方产品<br>页面生成于 __NOW__</footer>
-</div></body></html>"""
+</div>
+
+<script>
+window.__REFRESH__ = __REFRESH__;
+(function () {
+  var REFRESH = __REFRESH__;
+  var left = REFRESH;
+  var failed = false;
+
+  function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+  function applyData(d) {
+    if (!d) return;
+    document.getElementById('status').textContent = d.display_status;
+    document.getElementById('status2').textContent = d.display_status;
+    document.getElementById('remain').textContent = fmt(d.remaining);
+    document.getElementById('elapsed').textContent = fmt(d.elapsed);
+    document.getElementById('total').textContent = fmt(d.predicted_total);
+    document.getElementById('progress').style.width = d.progress + '%';
+    document.getElementById('bar').className = 'bar' + (d.anomaly ? ' warn' : '');
+    var v = document.getElementById('verdict');
+    v.className = 'verdict ' + d.tone;
+    v.textContent = d.verdict;
+    document.getElementById('win').textContent = d.window
+      ? ('当前 ' + d.window.label + ' 剩余 ' + d.window.remaining + ' 分钟')
+      : '当前不在课间窗口';
+    document.getElementById('shelfBox').innerHTML = (d.shelf || []).map(function (s) {
+      return '<div class="shelf"><span class="dot ' + s.status + '"></span>'
+        + '<span style="flex:1">' + s.item + '<div class="tiny">' + s.message + '</div></span>'
+        + '<span style="font-variant-numeric:tabular-nums;color:#6b7280">'
+        + fmt(s.elapsed_minutes) + ' 分钟</span></div>';
+    }).join('');
+    document.getElementById('updatedAt').textContent = d.now;
+    document.title = '订单追踪 · ' + d.display_status;
+  }
+
+  function loadData() {
+    var s = document.createElement('script');
+    s.src = 'order-status-data.js?t=' + Date.now();
+    s.onload = function () {
+      failed = false;
+      document.getElementById('livebar').className = 'livebar';
+      document.getElementById('liveMsg').textContent = '';
+      if (window.ORDER_DATA) applyData(window.ORDER_DATA);
+    };
+    s.onerror = function () {
+      failed = true;
+      document.getElementById('livebar').className = 'livebar err';
+      document.getElementById('liveMsg').textContent =
+        '自动更新暂时停了（没读到 order-status-data.js）。上面的数字停在「上次更新」那一刻，'
+        + '不是页面出错——重新运行 order_watch.py 就会继续。';
+    };
+    document.body.appendChild(s);
+  }
+
+  setInterval(function () {
+    left -= 1;
+    if (left <= 0) {
+      left = REFRESH;
+      loadData();
+    }
+    document.getElementById('countdown').textContent = left;
+  }, 1000);
+
+  loadData();
+})();
+</script>
+</body></html>"""
 
 
-def render_html(r: dict) -> str:
-    shelf_rows = []
-    icons = {"ok": "ok", "warning": "warning", "expired": "expired", "unknown": "unknown"}
+def _shelf_html(r: dict) -> str:
+    rows = []
     for s in r["shelf"]:
-        cls = icons.get(s["status"], "unknown")
-        shelf_rows.append(
-            f'<div class="shelf"><span class="dot {cls}"></span><span style="flex:1">'
+        rows.append(
+            f'<div class="shelf"><span class="dot {s["status"]}"></span><span style="flex:1">'
             f'{s["item"]}<div class="tiny">{s["message"]}</div></span>'
             f'<span style="font-variant-numeric:tabular-nums;color:#6b7280">'
             f'{s["elapsed_minutes"]:.1f} 分钟</span></div>'
         )
-    if not shelf_rows:
-        shelf_rows.append('<div class="tiny">本单无餐品明细。</div>')
+    return "".join(rows) or '<div class="tiny">本单无餐品明细。</div>'
 
+
+def render_html(r: dict, refresh: int = 20) -> str:
     win = r.get("window")
     win_txt = (f"当前 {win['label']} 剩余 {win['remaining']} 分钟" if win else "当前不在课间窗口")
-
     return (HTML_TEMPLATE
             .replace("__ORDER__", r["order_id"] or "演示订单")
             .replace("__STORE__", r["store"])
@@ -270,33 +357,53 @@ def render_html(r: dict) -> str:
             .replace("__TOTAL__", f'{r["predicted_total"]:.1f}')
             .replace("__TONE__", r["tone"])
             .replace("__VERDICT__", r["verdict"])
-            .replace("__SHELF__", "".join(shelf_rows))
+            .replace("__SHELF__", _shelf_html(r))
             .replace("__FLOOR__", f'{r["floor"]:.1f}')
             .replace("__WINDOW__", win_txt)
             .replace("__FROZEN__", "已冻结（数据异常）" if r["frozen"] else "正常")
-            .replace("__NOW__", r["now"]))
+            .replace("__NOW__", r["now"])
+            .replace("__REFRESH__", str(refresh)))
 
 
-def push_snapshot(snap: dict, model: PrepModel, store: str, key: str, quiet: bool) -> dict:
+def render_data_js(r: dict) -> str:
+    payload = json.dumps({
+        "display_status": r["display_status"],
+        "remaining": r["remaining"],
+        "elapsed": r["elapsed"],
+        "predicted_total": r["predicted_total"],
+        "progress": r["progress"],
+        "anomaly": r["anomaly"],
+        "tone": r["tone"],
+        "verdict": r["verdict"],
+        "now": r["now"],
+        "window": r["window"],
+        "shelf": r["shelf"],
+    }, ensure_ascii=False)
+    return "window.ORDER_DATA = " + payload + ";\n"
+
+
+def push_snapshot(snap: dict, model: PrepModel, store: str, key: str,
+                  quiet: bool, refresh: int = 20) -> dict:
     r = evaluate(snap, model, store)
-    html = render_html(r)
     with open(OUT_HTML, "w", encoding="utf-8") as fh:
-        fh.write(html)
+        fh.write(render_html(r, refresh))
+    with open(OUT_DATA, "w", encoding="utf-8") as fh:
+        fh.write(render_data_js(r))
     snap["history"] = (snap.get("history") or []) + [{
-        "at": r["now"], "status": r["status_label"],
+        "at": r["now"], "status": r["display_status"],
         "elapsed": r["elapsed"], "remaining": r["remaining"], "anomaly": r["anomaly"],
     }][-1:]
     snap["last_eval"] = r
     save_state(key, snap)
     if not quiet:
-        print(f"[{r['now'][11:]}] 状态={r['status_label']}  已等={r['elapsed']}分  "
+        print(f"[{r['now'][11:]}] 状态={r['display_status']}  已等={r['elapsed']}分  "
               f"预计还需={r['remaining']}分  进度={r['progress']}%"
               + ("  ⚠ 疑似提前点完成" if r["anomaly"] else ""))
     return r
 
 
 # ── 真实模式 ────────────────────────────────────────────────
-def run_real(order_id: str, interval: float, once: bool) -> int:
+def run_real(order_id: str, interval: float, once: bool, refresh: int = DEFAULT_REFRESH) -> int:
     from mcd_client import McdMcpClient, McpError, envelope_data
 
     client = McdMcpClient()
@@ -357,7 +464,7 @@ def run_real(order_id: str, interval: float, once: bool) -> int:
                 "items": items, "campaign": False,
                 "history": st.get("history", []),
             }
-            push_snapshot(snap, model, store or "-", key, quiet=False)
+            push_snapshot(snap, model, store or "-", key, quiet=False, refresh=refresh)
             if once:
                 return 0
             _, code = parse_status(raw_status)
@@ -371,7 +478,7 @@ def run_real(order_id: str, interval: float, once: bool) -> int:
 
 
 # ── 演示模式 ────────────────────────────────────────────────
-def run_demo(speed: float, interval: float) -> int:
+def run_demo(speed: float, interval: float, refresh: int = DEFAULT_REFRESH) -> int:
     """模拟一单：真实压力下的提前点完成。无需下单、无需 Token。"""
     model = PrepModel()
     store = "3450415"
@@ -381,12 +488,13 @@ def run_demo(speed: float, interval: float) -> int:
 
     # (相对分钟数, 原始状态)
     script = [(0.0, "1"), (0.4, "2"), (1.2, "4"), (1.2, "4"), (4.5, "4")]
-    base = sum(Item(code=c, name=n).base_minutes for c, n in items)
     est = model.estimate([Item(code=c, name=n) for c, n in items],
                          at=created, store_code=store, safe=True)
+    base = float(est.breakdown.get("base_minutes") or 3.0)
+    floor = max(0.7, 0.55 * base)
     print(f"演示订单：{', '.join(n for _c, n in items)}")
-    print(f"基准出餐 {base:.1f} 分钟，保守预估总时长 {est.minutes:.1f} 分钟，"
-          f"物理下界 {max(0.7, 0.55*base):.1f} 分钟")
+    print(f"基准出餐 {base:.1f} 分钟（并行折扣后），保守预估总时长 {est.minutes:.1f} 分钟，"
+          f"物理下界 {floor:.1f} 分钟")
     print("模拟序列：待支付 → 配餐中 → 门店在 1.2 分钟就点了「已完成」（低于物理下界）")
     print("-" * 72)
 
@@ -400,15 +508,16 @@ def run_demo(speed: float, interval: float) -> int:
             "created_at": created, "now": created + timedelta(minutes=minutes),
             "raw_status": raw, "items": items, "campaign": False, "history": [],
         }
-        r = push_snapshot(snap, model, store, key, quiet=False)
+        r = push_snapshot(snap, model, store, key, quiet=False, refresh=refresh)
         if r["anomaly"]:
             print(f"    ⚠ 判定：{r['verdict']}")
             for s in r["shelf"]:
                 print(f"    · {s['item']}：{s['message']}（已放置 {s['elapsed_minutes']} 分钟）")
         time.sleep(max(0.0, interval * speed))
     print("-" * 72)
-    print(f"已写入自刷新页面：{OUT_HTML}")
-    print("用浏览器打开它，页面每 8 秒自动重读一次，无需服务器。")
+    print(f"已写入：{OUT_HTML}")
+    print(f"        {OUT_DATA}")
+    print(f"用浏览器打开 HTML，页面每 {refresh} 秒原地更新数字（不刷新整页、不跳滚动位置）。")
     return 0
 
 
@@ -416,15 +525,17 @@ def main() -> int:
     p = argparse.ArgumentParser(prog="order_watch", description="下单后实时追踪")
     p.add_argument("--order", help="真实订单号（走麦当劳 MCP 轮询）")
     p.add_argument("--demo", action="store_true", help="演示模式，无需下单与 Token")
-    p.add_argument("--interval", type=float, default=10.0, help="轮询间隔（秒），默认 10")
+    p.add_argument("--interval", type=float, default=10.0, help="MCP 轮询间隔（秒），默认 10")
+    p.add_argument("--refresh", type=int, default=DEFAULT_REFRESH,
+                   help=f"页面自动更新间隔（秒），默认 {DEFAULT_REFRESH}")
     p.add_argument("--speed", type=float, default=0.35, help="演示模式的节奏倍率")
     p.add_argument("--once", action="store_true", help="真实模式只查一次")
     a = p.parse_args()
 
     if a.demo:
-        return run_demo(a.speed, a.interval)
+        return run_demo(a.speed, a.interval, a.refresh)
     if a.order:
-        return run_real(a.order, a.interval, a.once)
+        return run_real(a.order, a.interval, a.once, a.refresh)
     p.print_help()
     return 1
 
