@@ -7,8 +7,12 @@
 | 看什么 | 链接 |
 |---|---|
 | **首页概览** | https://asdunlilj.github.io/mcd-break-window/ |
+| **自己改参数算一算（模拟器）** | https://asdunlilj.github.io/mcd-break-window/simulator.html |
 | **课间推荐看板** | https://asdunlilj.github.io/mcd-break-window/preview-client.html |
 | **订单追踪页** | https://asdunlilj.github.io/mcd-break-window/order-status.html |
+
+> **模拟器**是给"没有 Token 的人"用的：改时间、改课间时长、改预算，**页面在你的浏览器里实时重算**，
+> 不需要连网、不需要 Token、不需要装任何东西。它不是一个结果快照，是一个能自己算的工具。
 
 > 如果这个项目对你有用，欢迎点个 **Star** —— 大赛按 Star 数排名，这是最实在的支持。
 
