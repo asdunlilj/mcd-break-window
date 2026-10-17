@@ -75,6 +75,13 @@
     "distance_meters": 337
   },
 
+  "queue": {
+    "_comment": "门店高峰到达率（单/分钟）。用于 Little's Law 估算「当前在制订单数」。有取餐码实测样本时自动取代这里的值。rate_source 必须如实填写：default=默认值（界面标注未标定）、manager=门店提供、measured=取餐码实测。",
+    "peak_rate_per_min": 1.2,
+    "peak_time_factor": 1.55,
+    "rate_source": "default"
+  },
+
   "notes": [
     "周五和周六下午 13:10 正式上课，晚上 19:00 正式上课（与周一至周四不同）。",
     "门店 09:00 开门，早自习(07:20)与第一节课(08:20-09:05)期间门店尚未营业。",

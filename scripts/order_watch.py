@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import official_times as ot
+import queue_estimate as qe
 from break_window import Item, PrepModel
 
 TRACK_DIR = os.path.join(os.path.expanduser("~"), ".mcd-break-window", "tracking")
@@ -142,6 +143,7 @@ def evaluate(snap: dict, model: PrepModel, store: str) -> dict:
     progress = min(100.0, (elapsed / predicted_total * 100.0) if predicted_total > 0 else 0)
 
     shelf = ot.shelf_life_status(elapsed, [n for _c, n in snap.get("items", [])])
+    queue = qe.estimate_queue(model, store, now, predicted_total)
 
     pressure = model.state
     frozen = bool(pressure.get("frozen"))
@@ -166,6 +168,7 @@ def evaluate(snap: dict, model: PrepModel, store: str) -> dict:
         "tone": tone,
         "verdict": verdict,
         "shelf": shelf,
+        "queue": queue,
         "items": snap.get("items", []),
         "window": ({"label": window.label, "kind": window.kind,
                     "end": window.end, "remaining": remaining_win} if window else None),
@@ -254,6 +257,19 @@ footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-hei
 </div>
 
 <div class="card">
+  <h2>门店当前忙闲</h2>
+  <div style="font-size:clamp(26px,7vw,36px);font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums">
+    约 <span id="qcount">__QCOUNT__</span> 单在做
+  </div>
+  <div class="row" style="margin-top:12px">
+    <span>每分钟新增 <b id="qlam">__QLAM__</b> 单</span>
+    <span>每单平均 <b id="qwait">__QWAIT__</b> 分钟</span>
+  </div>
+  <div class="tiny" id="qnote" style="margin-top:8px">__QNOTE__</div>
+  <div class="warn" style="margin-top:12px">__QCAVEAT__</div>
+</div>
+
+<div class="card">
   <h2>追踪依据</h2>
   <div>
     <span class="chip">物理下界 __FLOOR__ 分钟</span>
@@ -302,6 +318,14 @@ window.__REFRESH__ = __REFRESH__;
         + fmt(s.elapsed_minutes) + ' 分钟</span></div>';
     }).join('');
     document.getElementById('updatedAt').textContent = d.now;
+    if (d.queue) {
+      document.getElementById('qcount').textContent = d.queue.in_system;
+      document.getElementById('qlam').textContent = d.queue.lambda_per_min;
+      document.getElementById('qwait').textContent = fmt(d.queue.wait_minutes);
+      document.getElementById('qnote').textContent =
+        d.queue.formula + ' · ' + d.queue.basis + ' · ' + d.queue.note
+        + ' · 置信度 ' + d.queue.confidence;
+    }
     document.title = '订单追踪 · ' + d.display_status;
   }
 
@@ -367,6 +391,13 @@ def render_html(r: dict, refresh: int = 20) -> str:
             .replace("__TONE__", r["tone"])
             .replace("__VERDICT__", r["verdict"])
             .replace("__SHELF__", _shelf_html(r))
+            .replace("__QCOUNT__", str(r["queue"]["in_system"]))
+            .replace("__QLAM__", str(r["queue"]["lambda_per_min"]))
+            .replace("__QWAIT__", f'{r["queue"]["wait_minutes"]}')
+            .replace("__QNOTE__",
+                     f'{r["queue"]["formula"]} · {r["queue"]["basis"]} · {r["queue"]["note"]}'
+                     f' · 置信度 {r["queue"]["confidence"]}')
+            .replace("__QCAVEAT__", r["queue"]["caveat"])
             .replace("__FLOOR__", f'{r["floor"]:.1f}')
             .replace("__PICKUP__", r.get("pickup_code") or "—")
             .replace("__WINDOW__", win_txt)
@@ -388,6 +419,7 @@ def render_data_js(r: dict) -> str:
         "now": r["now"],
         "window": r["window"],
         "shelf": r["shelf"],
+        "queue": r["queue"],
     }, ensure_ascii=False)
     return "window.ORDER_DATA = " + payload + ";\n"
 
@@ -474,6 +506,12 @@ def run_real(order_id: str, interval: float, once: bool, refresh: int = DEFAULT_
                         q = blob.find('"', p + len(m) + 4)
                         items.append((f"item{len(items)}", blob[p + len(m) + 4:q]))
                         idx = q
+
+            if pickup:
+                existing = (model.state.get("pickup_samples") or {}).get(store or "-") or []
+                if not any(str(x.get("code")) == str(pickup) for x in existing):
+                    qe.record_pickup(model, store or "-", pickup, created)
+                    print(f"[取餐码] 已记录 {pickup}，累计采样可用于标定本店到达率 λ")
 
             snap = {
                 "order_id": order_id, "store": store, "created_at": created,
