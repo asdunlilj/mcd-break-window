@@ -36,15 +36,20 @@ OUT_DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
                         "order-status-data.js")
 DEFAULT_REFRESH = 20  # 秒。8 秒太快，页面跳动会让人以为是 bug
 
-# 订单状态：数字码与中文文本两种口径都要认（query-order 返回数字，order-list 返回中文）
+# 订单状态：以 query-order 的官方 schema 为准
+#   1待支付 / 2配餐中-已支付 / 4配送中 / 6已完成 / 7已取消 / 8已评价
+#   10配餐中-餐厅确认配餐中
+# 实测：orderStatus 返回**中文文本**，status 返回**数字码**（如已完成时 status="40"）
+# 两种口径都要认。
 STATUS_MAP = {
     "1": ("待支付", "pending_pay"),
     "2": ("配餐中", "preparing"),
+    "4": ("配送中", "delivering"),
+    "6": ("已完成", "done"),
+    "7": ("已取消", "cancelled"),
+    "8": ("已评价", "rated"),
     "10": ("餐厅确认配餐中", "preparing"),
-    "3": ("配送中", "delivering"),
-    "4": ("已完成", "done"),
-    "5": ("已取消", "cancelled"),
-    "6": ("已评价", "rated"),
+    "40": ("已完成", "done"),
     "待支付": ("待支付", "pending_pay"),
     "配餐中": ("配餐中", "preparing"),
     "餐厅确认配餐中": ("餐厅确认配餐中", "preparing"),
@@ -146,6 +151,7 @@ def evaluate(snap: dict, model: PrepModel, store: str) -> dict:
     return {
         "order_id": snap.get("order_id", ""),
         "store": store,
+        "pickup_code": snap.get("pickup_code", ""),
         "status_label": label,
         "display_status": (f"{label}（存疑）" if anomaly and code in READY_CODES else label),
         "status_code": code,
@@ -251,10 +257,13 @@ footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-hei
   <h2>追踪依据</h2>
   <div>
     <span class="chip">物理下界 __FLOOR__ 分钟</span>
+    <span class="chip">取餐码 <b style="font-variant-numeric:tabular-nums">__PICKUP__</b></span>
     <span class="chip">订单状态 <span id="status2">__STATUS__</span></span>
     <span class="chip" id="win">__WINDOW__</span>
     <span class="chip">校准状态：__FROZEN__</span>
   </div>
+  <div class="tiny">取餐码是门店给出的<b>真实序号</b>（由门店当日/累计单量决定），不是估算值。
+  同一门店多次下单时，取餐码差 ÷ 时间差 ≈ 该店出单速率，可用于校准队列长度。</div>
   <div class="tiny">数据来源：麦当劳 MCP + 本机模型输出。页面读取同目录下的
   <code>order-status-data.js</code>，只更新数字与文案，不刷新整页。</div>
 </div>
@@ -359,6 +368,7 @@ def render_html(r: dict, refresh: int = 20) -> str:
             .replace("__VERDICT__", r["verdict"])
             .replace("__SHELF__", _shelf_html(r))
             .replace("__FLOOR__", f'{r["floor"]:.1f}')
+            .replace("__PICKUP__", r.get("pickup_code") or "—")
             .replace("__WINDOW__", win_txt)
             .replace("__FROZEN__", "已冻结（数据异常）" if r["frozen"] else "正常")
             .replace("__NOW__", r["now"])
@@ -428,6 +438,13 @@ def run_real(order_id: str, interval: float, once: bool, refresh: int = DEFAULT_
                 if p >= 0:
                     store = blob[p + len(marker): blob.find('"', p + len(marker))]
                     break
+            pickup = ""
+            for k in ("pickupCode",):
+                marker = f'"{k}":"'
+                p = blob.find(marker)
+                if p >= 0:
+                    pickup = blob[p + len(marker): blob.find('"', p + len(marker))]
+                    break
             created_raw = ""
             for k in ("createTime",):
                 marker = f'"{k}":"'
@@ -461,6 +478,7 @@ def run_real(order_id: str, interval: float, once: bool, refresh: int = DEFAULT_
             snap = {
                 "order_id": order_id, "store": store, "created_at": created,
                 "now": datetime.now(), "raw_status": raw_status,
+                "pickup_code": pickup,
                 "items": items, "campaign": False,
                 "history": st.get("history", []),
             }
@@ -486,8 +504,8 @@ def run_demo(speed: float, interval: float, refresh: int = DEFAULT_REFRESH) -> i
     items = [("1440", "麦辣鸡腿汉堡"), ("4810", "薯条")]
     key = "demo-order"
 
-    # (相对分钟数, 原始状态)
-    script = [(0.0, "1"), (0.4, "2"), (1.2, "4"), (1.2, "4"), (4.5, "4")]
+    # (相对分钟数, 原始状态) —— 状态码按官方 schema：1待支付/2配餐中/6已完成
+    script = [(0.0, "1"), (0.4, "2"), (1.2, "6"), (1.2, "6"), (4.5, "6")]
     est = model.estimate([Item(code=c, name=n) for c, n in items],
                          at=created, store_code=store, safe=True)
     base = float(est.breakdown.get("base_minutes") or 3.0)
@@ -506,7 +524,8 @@ def run_demo(speed: float, interval: float, refresh: int = DEFAULT_REFRESH) -> i
         snap = {
             "order_id": "DEMO-0001", "store": store,
             "created_at": created, "now": created + timedelta(minutes=minutes),
-            "raw_status": raw, "items": items, "campaign": False, "history": [],
+            "raw_status": raw, "pickup_code": "35062",
+            "items": items, "campaign": False, "history": [],
         }
         r = push_snapshot(snap, model, store, key, quiet=False, refresh=refresh)
         if r["anomaly"]:
