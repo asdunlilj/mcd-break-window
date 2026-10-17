@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="refresh" content="8">
+<meta name="color-scheme" content="light">
+<title>订单追踪 · DEMO-0001</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+     background:#f5f6f8;color:#1a1d21;line-height:1.65;
+     padding:clamp(14px,3vw,28px) clamp(12px,2.6vw,20px) 40px}
+.wrap{max-width:720px;margin:0 auto}
+.card{background:#fff;border:1px solid #e6e8ec;border-radius:14px;padding:clamp(16px,3.4vw,24px);
+      margin-bottom:14px}
+h1{font-size:clamp(17px,4.2vw,21px);font-weight:700;margin-bottom:6px}
+.sub{font-size:13px;color:#5b6270}
+.big{font-size:clamp(38px,11vw,56px);font-weight:800;line-height:1.1;
+     font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.big small{font-size:.34em;font-weight:600;color:#6b7280;margin-left:6px}
+.bar{height:14px;border-radius:7px;background:#e9ecf1;overflow:hidden;margin:16px 0 8px}
+.bar>i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,#2e7d32,#4caf50);
+       transition:width .6s ease}
+.bar.warn>i{background:linear-gradient(90deg,#c0392b,#e07b6f)}
+.row{display:flex;justify-content:space-between;font-size:13px;color:#5b6270}
+.verdict{border-radius:11px;padding:13px 15px;font-size:clamp(13px,3.3vw,14px);margin-top:14px;border:1px solid}
+.verdict.warn{background:#fff7ed;border-color:#f3ddc0;color:#8a4b12}
+.verdict.ok{background:#f1f8f3;border-color:#cfe6d6;color:#1d5c37}
+.verdict.info{background:#f4f8ff;border-color:#d8e5fb;color:#1c3f77}
+h2{font-size:14px;font-weight:650;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+h2::before{content:"";width:3px;height:14px;background:#c0392b;border-radius:2px}
+.chip{display:inline-block;background:#f1f3f6;border:1px solid #e2e5ea;border-radius:999px;
+      padding:3px 10px;font-size:12px;color:#39404d;margin:0 6px 6px 0}
+.shelf{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed #eef0f3;font-size:13px}
+.shelf:last-child{border-bottom:0}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dot.ok{background:#2e7d32}.dot.warning{background:#e0a800}.dot.expired{background:#c0392b}.dot.unknown{background:#b9c0cc}
+.tiny{font-size:11.5px;color:#9aa1ad;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+th,td{text-align:left;padding:6px 5px;border-bottom:1px solid #eef0f3;vertical-align:top}
+th{color:#6b7280;font-weight:600;font-size:11.5px}
+footer{text-align:center;font-size:11.5px;color:#9aa1ad;margin-top:20px;line-height:1.9}
+</style></head><body><div class="wrap">
+
+<div class="card">
+  <h1>订单追踪 · 已完成（存疑）</h1>
+  <div class="sub">订单 DEMO-0001 · 门店 3450415 · 下单 2026-10-17 15:03:49</div>
+  <div class="big" style="margin-top:18px">4.0<small>分钟后可取</small></div>
+  <div class="bar warn"><i style="width:23%"></i></div>
+  <div class="row"><span>已等待 1.2 分钟</span><span>预计总时长 5.2 分钟</span></div>
+  <div class="verdict warn">门店已标记「已完成」，但距下单只有 1.2 分钟，低于物理下界 2.8 分钟——餐品不可能已做好。按当前压力推算，预计还需约 4.0 分钟。建议到柜台核对实物。</div>
+</div>
+
+<div class="card">
+  <h2>官方赏味倒计时</h2>
+  <div class="shelf"><span class="dot ok"></span><span style="flex:1">麦辣鸡腿汉堡<div class="tiny">在官方赏味时限内（上限 30 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div><div class="shelf"><span class="dot ok"></span><span style="flex:1">薯条<div class="tiny">在官方赏味时限内（上限 7 分钟）</div></span><span style="font-variant-numeric:tabular-nums;color:#6b7280">1.2 分钟</span></div>
+  <div class="tiny">依据麦当劳官方公开标准：薯条起锅后最佳赏味 7 分钟；汉堡制作后 20–30 分钟可售时限。
+  官方未发布其余品类的时限，因此显示"未知"，不做推测。</div>
+</div>
+
+<div class="card">
+  <h2>追踪依据</h2>
+  <div>
+    <span class="chip">物理下界 2.8 分钟</span>
+    <span class="chip">订单状态 已完成（存疑）</span>
+    <span class="chip">当前 第六节课 → 第七节课 剩余 15 分钟</span>
+    <span class="chip">校准状态：正常</span>
+  </div>
+  <div class="tiny">本页每 8 秒自动刷新（读取本地文件，无需服务器）。数据来源：麦当劳 MCP + 本机模型输出。</div>
+</div>
+
+<footer>麦麦课间窗口 · 参赛作品演示，非麦当劳官方产品<br>页面生成于 2026-10-17 15:05:01</footer>
+</div></body></html>
