@@ -2,6 +2,16 @@
 
 > 在有限的课间里，告诉你**现在点什么、大概多久能取**，让学生不迟到、门店不挤爆。
 
+## 在线体验（不用装任何东西）
+
+| 看什么 | 链接 |
+|---|---|
+| **首页概览** | https://asdunlilj.github.io/mcd-break-window/ |
+| **课间推荐看板** | https://asdunlilj.github.io/mcd-break-window/preview-client.html |
+| **订单追踪页** | https://asdunlilj.github.io/mcd-break-window/order-status.html |
+
+> 如果这个项目对你有用，欢迎点个 **Star** —— 大赛按 Star 数排名，这是最实在的支持。
+
 基于麦当劳中国 MCP 开发。参赛作品：2026 麦当劳程序员创意开发大赛。
 
 **首个验证门店**：`3450415` 麦当劳德阳罗江区四川工业科技学院校内商业街餐厅
